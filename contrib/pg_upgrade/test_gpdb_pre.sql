@@ -55,3 +55,7 @@ DROP VIEW IF EXISTS v_xpect_triangle_de CASCADE;
 -- The dump location for this protocol changes sporadically and causes a false
 -- negative. This may indicate a bug in pg_dump's sort priority for PROTOCOLs.
 DROP PROTOCOL IF EXISTS demoprot_untrusted;
+
+-- Failed "Analyzing all rows in the new cluster" in pipeline "pgupgrade:6to6" in job "create_2_node_cluster" while upgrading segments
+-- vacuumdb: vacuuming of database "regression" failed: ERROR:  ANALYZE unable to generate accurate statistics on table public.ao_lineitem. Try lowering gp_analyze_relative_error (analyze.c:2104)
+DROP TABLE IF EXISTS public.ao_lineitem CASCADE;
