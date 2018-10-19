@@ -12,8 +12,8 @@
 #include "pg_upgrade.h"
 
 #include "catalog/pg_class.h"
+#include "access/aomd.h"
 #include "access/appendonlytid.h"
-#include "access/appendonlywriter.h"
 #include "access/htup_details.h"
 #include "access/transam.h"
 
@@ -26,7 +26,8 @@ static void transfer_relfile(pageCnvCtx *pageConverter, FileNameMap *map,
 static bool transfer_relfile_segment(int segno, pageCnvCtx *pageConverter,
 									 FileNameMap *map, const char *suffix);
 static void transfer_ao(pageCnvCtx *pageConverter, FileNameMap *map);
-
+static bool aoRelFileOperationCallback_pg_upgrade(const int segno, const aoRelfileOperation_t operation,
+                                      const aoRelFileOperationData_t *user_data);
 
 /*
  * transfer_all_new_tablespaces()
@@ -367,80 +368,31 @@ transfer_relfile_segment(int segno, pageCnvCtx *pageConverter, FileNameMap *map,
 	return true;
 }
 
-/*
- * transfer_ao()
- */
 static void
 transfer_ao(pageCnvCtx *pageConverter, FileNameMap *map)
 {
-	int		segno;
-	int		colnum;
-	int		segNumberArray[AOTupleId_MaxSegmentFileNum];
-	int		segNumberArraySize;
+	aoRelFileOperationData_t ud;
 
-	/*
-	 * The 0 based extensions such as .128, .256, ... for CO tables are
-	 * created by ALTER table or utility mode insert. These also need to be
-	 * copied; however, they may not exist hence are treated separately
-	 * here. Column 0 concurrency level 0 file is always present. (TODO: this
-	 * may not be true; double-check.) MaxHeapAttributeNumber is used as a
-	 * sanity check; we expect the loop to terminate based on the return value
-	 * of the transfer.
-	 */
-	for (colnum = 0; colnum <= MaxHeapAttributeNumber; colnum++)
-	{
-		segno = colnum * AOTupleId_MultiplierSegmentFileNum;
-		if (!transfer_relfile_segment(segno, pageConverter, map, ""))
-			break;
-	}
+	transfer_relfile_segment(0, pageConverter, map, "");
 
-	segNumberArraySize = 0;
-	/* Collect all the segmentNumbers in [1..127]. */
-	/*
-	 * XXX We have the segment numbers in memory; we could stop at the highest
-	 * one instead of looping through 127 times for every table.
-	 */
-	for (segno = 1; segno < MAX_AOREL_CONCURRENCY; segno++)
-	{
-		if (!transfer_relfile_segment(segno, pageConverter, map, ""))
-			continue;
+	ud.operation = PG_UPGRADE;
+	ud.data.pg_upgrade.pageConverter = pageConverter;
+	ud.data.pg_upgrade.map = map;
 
-		segNumberArray[segNumberArraySize] = segno;
-		segNumberArraySize++;
-	}
+	aoRelfileOperationExecute(aoRelFileOperationCallback_pg_upgrade, PG_UPGRADE, &ud);
 
-	/* XXX can we also exit here for row-oriented AO tables? */
-	if (segNumberArraySize == 0)
-		return;
+}
 
-	for (int i = 0; i < segNumberArraySize; i++)
-	{
-		for (colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-		{
-			segno = colnum * AOTupleId_MultiplierSegmentFileNum + segNumberArray[i];
-			if (!transfer_relfile_segment(segno, pageConverter, map, ""))
-				break;
-		}
-	}
+bool
+aoRelFileOperationCallback_pg_upgrade(const int segno, const aoRelfileOperation_t operation,
+									  const aoRelFileOperationData_t *user_data)
+{
+	Assert(PG_UPGRADE == user_data->operation);
+	Assert(PG_UPGRADE == operation);
 
+	if (!transfer_relfile_segment(segno, user_data->data.pg_upgrade.pageConverter,
+								  user_data->data.pg_upgrade.map , ""))
+		return false;
 
-	/*
-	for (colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-	{
-		bool finished = false;
-		int i;
-
-		for (i = 0; i < segNumberArraySize; i++)
-		{
-			segno =	colnum * AOTupleId_MultiplierSegmentFileNum + segNumberArray[i];
-			if (!transfer_relfile_segment(segno, pageConverter, map, ""))
-			{
-				finished = true;
-				break;
-			}
-		}
-		if (finished)
-			break;
-	}
-	 */
+	return true;
 }

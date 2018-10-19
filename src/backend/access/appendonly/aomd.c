@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <access/aomd.h>
 
 #include "access/aomd.h"
 #include "access/appendonlytid.h"
@@ -35,6 +36,13 @@
 #include "cdb/cdbappendonlyxlog.h"
 #include "common/relpath.h"
 #include "utils/guc.h"
+
+static bool
+aoRelFileOperationCallback_unlink(const int segno, const aoRelfileOperation_t operation,
+                                  const aoRelFileOperationData_t *user_data);
+static bool
+aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperation_t operation,
+                                      const aoRelFileOperationData_t *user_data);
 
 int
 AOSegmentFilePathNameLen(Relation rel)
@@ -230,83 +238,43 @@ mdunlink_ao(const char *path)
 {
 	int path_size = strlen(path);
 	char *segpath = (char *) palloc(path_size + 12);
-	int segNumberArray[AOTupleId_MaxSegmentFileNum];
-	int segNumberArraySize;
 	char *segpath_suffix_position = segpath + path_size;
+	aoRelFileOperationData_t ud;
 
 	strncpy(segpath, path, path_size);
 
-	/*
-	 * The 0 based extensions such as .128, .256, ... for CO tables are
-	 * created by ALTER table or utility mode insert. These also need to be
-	 * deleted; however, they may not exist hence are treated separately
-	 * here. Column 0 concurrency level 0 file is always
-	 * present. MaxHeapAttributeNumber is used as a sanity check; we expect
-	 * the loop to terminate based on unlink return value.
-	 */
-	for(int colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-	{
-		sprintf(segpath_suffix_position, ".%u", colnum*AOTupleId_MultiplierSegmentFileNum);
-		if (unlink(segpath) != 0)
-		{
-			/* ENOENT is expected after the end of the extensions */
-			if (errno != ENOENT)
-				ereport(WARNING,
-						(errcode_for_file_access(),
-						 errmsg("could not remove file \"%s\": %m", segpath)));
-			else
-				break;
-		}
-	}
-
-	segNumberArraySize = 0;
-	/* Collect all the segmentNumbers in [1..127]. */
-	for (int concurrency_index = 1; concurrency_index < MAX_AOREL_CONCURRENCY;
-		 concurrency_index++)
-	{
-		sprintf(segpath_suffix_position, ".%u", concurrency_index);
-		if (unlink(segpath) != 0)
-		{
-			if (errno != ENOENT)
-				ereport(WARNING,
-						(errcode_for_file_access(),
-						 errmsg("could not remove file \"%s\": %m", segpath)));
-			continue;
-		}
-		segNumberArray[segNumberArraySize] = concurrency_index;
-		segNumberArraySize++;
-	}
-
-	if (segNumberArraySize == 0)
-	{
-		pfree(segpath);
-		return;
-	}
-
-	for (int i = 0; i < segNumberArraySize; i++)
-	{
-		for (int colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-		{
-			sprintf(segpath_suffix_position, ".%u",
-					colnum * AOTupleId_MultiplierSegmentFileNum + segNumberArray[i]);
-			if (unlink(segpath) != 0)
-			{
-				/* ENOENT is expected after the end of the extensions */
-				if (errno != ENOENT)
-					ereport(WARNING,
-							(errcode_for_file_access(),
-									errmsg("could not remove file \"%s\": %m", segpath)));
-				else
-					break;
-			}
-		}
-	}
+	ud.operation = MD_UNLINK;
+	ud.data.md_unlink.segpath = segpath;
+	ud.data.md_unlink.segpath_suffix_position = segpath_suffix_position;
+	aoRelfileOperationExecute(aoRelFileOperationCallback_unlink, MD_UNLINK, &ud);
 
 	pfree(segpath);
 }
 
+bool
+aoRelFileOperationCallback_unlink(const int segno, const aoRelfileOperation_t operation,
+		const aoRelFileOperationData_t *user_data) {
+
+	char *segpath = user_data->data.md_unlink.segpath;
+	char *segpath_suffix_position = user_data->data.md_unlink.segpath_suffix_position;
+
+	sprintf(segpath_suffix_position, ".%u", segno);
+	if (unlink(segpath) != 0)
+	{
+		/* ENOENT is expected after the end of the extensions */
+		if (errno != ENOENT)
+			ereport(WARNING,
+					(errcode_for_file_access(),
+							errmsg("could not remove file \"%s\": %m", segpath)));
+		else
+			return false;
+	}
+
+	return true;
+}
+
 static void
-copy_file(char *srcsegpath, char* dstsegpath,
+copy_file(char *srcsegpath, char *dstsegpath,
 		  RelFileNode dst, int segfilenum, bool use_wal)
 {
 	File		srcFile;
@@ -391,16 +359,13 @@ copy_file(char *srcsegpath, char* dstsegpath,
  * Currently, AO tables don't have any extra forks.
  */
 void
-copy_append_only_data(RelFileNode src, RelFileNode dst, BackendId backendid, char relpersistence)
+copy_append_only_data(RelFileNode src, RelFileNode dst,
+        BackendId backendid, char relpersistence)
 {
 	char *srcpath;
 	char *dstpath;
-	char srcsegpath[MAXPGPATH + 12];
-	char dstsegpath[MAXPGPATH + 12];
-	int segNumberArray[AOTupleId_MaxSegmentFileNum];
-	int segNumberArraySize;
 	bool use_wal;
-
+	aoRelFileOperationData_t ud;
 	/*
 	 * We need to log the copied data in WAL iff WAL archiving/streaming is
 	 * enabled AND it's a permanent relation.
@@ -410,76 +375,44 @@ copy_append_only_data(RelFileNode src, RelFileNode dst, BackendId backendid, cha
 	srcpath = relpathbackend(src, backendid, MAIN_FORKNUM);
 	dstpath = relpathbackend(dst, backendid, MAIN_FORKNUM);
 
-	/*
-	 * For CO table, ALTER table, or utility mode insert files .128.. .256 0
-	 * based extensions are created. These also need to be copied; however,
-	 * they may not exist hence are treated separately here. Column 0
-	 * concurrency level 0 file is always present. MaxHeapAttributeNumber is
-	 * used as a sanity check; we expect the loop to terminate based on
-	 * access()'s return value.
-	 */
 	copy_file(srcpath, dstpath, dst, 0, use_wal);
-	for(int colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-	{
-		int suffix = colnum*AOTupleId_MultiplierSegmentFileNum;
-		sprintf(srcsegpath, "%s.%u", srcpath, suffix);
-		if (access(srcsegpath, F_OK) != 0)
-		{
-			/* ENOENT is expected after the end of the extensions */
-			if (errno != ENOENT)
-				ereport(ERROR,
-						(errcode_for_file_access(),
-						 errmsg("access failed for file \"%s\": %m", srcsegpath)));
-			break;
-		}
-		sprintf(dstsegpath, "%s.%u", dstpath, suffix);
-		copy_file(srcsegpath, dstsegpath, dst, suffix, use_wal);
-	}
 
-	segNumberArraySize=0;
-	/* Collect all the segmentNumbers in [1..127]. */
-	for (int concurrency_index = 1; concurrency_index < MAX_AOREL_CONCURRENCY;
-		 concurrency_index++)
-	{
-		sprintf(srcsegpath, "%s.%u", srcpath, concurrency_index);
-		if (access(srcsegpath, F_OK) != 0)
-		{
-			if (errno != ENOENT)
-				ereport(ERROR,
-						(errcode_for_file_access(),
-						 errmsg("access failed for file \"%s\": %m", srcsegpath)));
-			continue;
-		}
-		sprintf(dstsegpath, "%s.%u", dstpath, concurrency_index);
-		copy_file(srcsegpath, dstsegpath, dst, concurrency_index, use_wal);
-
-		segNumberArray[segNumberArraySize] = concurrency_index;
-		segNumberArraySize++;
-	}
-
-	if (segNumberArraySize == 0)
-		return;
-
-
-	for (int concurrency_index = 0; concurrency_index < segNumberArraySize;
-			concurrency_index++)
-	{
-		for (int colnum = 1; colnum <= MaxHeapAttributeNumber; colnum++)
-		{
-			int suffix =
-					colnum * AOTupleId_MultiplierSegmentFileNum + segNumberArray[concurrency_index];
-			sprintf(srcsegpath, "%s.%u", srcpath, suffix);
-			if (access(srcsegpath, F_OK) != 0)
-			{
-				/* ENOENT is expected after the end of the extensions */
-				if (errno != ENOENT)
-					ereport(ERROR,
-							(errcode_for_file_access(),
-									errmsg("access failed for file \"%s\": %m", srcsegpath)));
-				break;
-			}
-			sprintf(dstsegpath, "%s.%u", dstpath, suffix);
-			copy_file(srcsegpath, dstsegpath, dst, suffix, use_wal);
-		}
-	}
+	ud.operation = COPY_FILES;
+	ud.data.copy_files.srcpath = srcpath;
+	ud.data.copy_files.dstpath = dstpath;
+	ud.data.copy_files.dst = dst;
+	ud.data.copy_files.useWal = use_wal;
+	aoRelfileOperationExecute(aoRelFileOperationCallback_copy_files, COPY_FILES, &ud);
 }
+
+bool
+aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperation_t operation,
+								  const aoRelFileOperationData_t *user_data)
+{
+	Assert(COPY_FILES == user_data->operation);
+	Assert(COPY_FILES == operation);
+
+	char srcsegpath[MAXPGPATH + 12];
+	char dstsegpath[MAXPGPATH + 12];
+	char *srcpath = user_data->data.copy_files.srcpath;
+	char *dstpath = user_data->data.copy_files.dstpath;
+	RelFileNode dst = user_data->data.copy_files.dst;
+    bool use_wal = user_data->data.copy_files.useWal;
+
+	sprintf(srcsegpath, "%s.%u", srcpath, segno);
+	if (access(srcsegpath, F_OK) != 0)
+	{
+		/* ENOENT is expected after the end of the extensions */
+		if (errno != ENOENT)
+			ereport(ERROR,
+					(errcode_for_file_access(),
+							errmsg("access failed for file \"%s\": %m", srcsegpath)));
+		return false;
+	}
+	sprintf(dstsegpath, "%s.%u", dstpath, segno);
+	copy_file(srcsegpath, dstsegpath, dst, segno, use_wal);
+
+
+	return true;
+}
+

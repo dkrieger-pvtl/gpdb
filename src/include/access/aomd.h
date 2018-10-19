@@ -15,6 +15,7 @@
 #ifndef AOMD_H
 #define AOMD_H
 
+#include "htup_details.h"
 #include "storage/fd.h"
 #include "utils/rel.h"
 
@@ -51,4 +52,42 @@ extern void
 mdunlink_ao(const char *path);
 extern void
 copy_append_only_data(RelFileNode src, RelFileNode dst, BackendId backendid, char relpersistence);
+
+/* ADD COMMENTS */
+typedef enum
+{
+	PG_UPGRADE = 1,
+	MD_UNLINK  = 2,
+	COPY_FILES = 3
+} aoRelfileOperation_t;
+
+typedef struct aoRelFileOperationData {
+	aoRelfileOperation_t operation;
+	union {
+		struct {
+			void *pageConverter;
+			void *map;
+		} pg_upgrade;
+		struct {
+			char *segpath;
+			char *segpath_suffix_position;
+		} md_unlink;
+		struct {
+			char *srcpath;
+			char *dstpath;
+            RelFileNode dst;
+			bool useWal;
+		} copy_files;
+	} data;
+} aoRelFileOperationData_t;
+
+
+typedef bool (*aoRelFileFunction_t)(const int segno, const aoRelfileOperation_t operation,
+									const aoRelFileOperationData_t *user_data);
+
+extern void
+aoRelfileOperationExecute(aoRelFileFunction_t relfileOperation,
+                          const aoRelfileOperation_t operation,
+                          const aoRelFileOperationData_t *user_data);
+
 #endif							/* AOMD_H */
