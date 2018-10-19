@@ -38,11 +38,13 @@
 #include "utils/guc.h"
 
 static bool
-aoRelFileOperationCallback_unlink(const int segno, const aoRelfileOperation_t operation,
-                                  const aoRelFileOperationData_t *user_data);
+aoRelFileOperationCallback_unlink_files(const int segno,
+                                        const aoRelfileOperationType_t operation,
+                                        const aoRelFileOperationData_t *data);
 static bool
-aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperation_t operation,
-                                      const aoRelFileOperationData_t *user_data);
+aoRelFileOperationCallback_copy_files(const int segno,
+									  const aoRelfileOperationType_t operation,
+									  const aoRelFileOperationData_t *data);
 
 int
 AOSegmentFilePathNameLen(Relation rel)
@@ -206,57 +208,35 @@ TruncateAOSegmentFile(File fd, Relation rel, int32 segFileNum, int64 offset)
 		xlog_ao_truncate(rel->rd_node, segFileNum, offset);
 }
 
-/*
- * Delete All segment file extensions, in case it was an AO or AOCS
- * table. Ideally the logic works even for heap tables, but is only used
- * currently for AO and AOCS tables to avoid merge conflicts.
- *
- * There are different rules for the naming of the files, depending on
- * the type of table:
- *
- *   Heap Tables: contiguous extensions, no upper bound
- *   AO Tables: non contiguous extensions [.1 - .127]
- *   CO Tables: non contiguous extensions
- *          [  .1 - .127] for first column;  .0 reserved for utility and alter
- *          [.129 - .255] for second column; .128 reserved for utility and alter
- *          [.257 - .283] for third column;  .256 reserved for utility and alter
- *          etc
- *
- *  Algorithm is coded with the assumption for CO tables that for a given
- *  concurrency level, the relfiles exist OR stop existing for all columns thereafter.
- *  For instance, if .2 exists, then .(2 + 128N) MIGHT exist for N=1.  But if it does
- *  not exist for N=1, then it doesn't exist for N>=2.
- *
- *  1) Finds for which concurrency levels the table has files. This is
- *     calculated based off the first column. It performs 127
- *     (MAX_AOREL_CONCURRENCY) unlink().
- *  2) Iterates over a concurrency level, unlinking all files for each column.  It uses
- *     the above assumption to stop and proceed to the next concurrency level.
- */
 void
 mdunlink_ao(const char *path)
 {
 	int path_size = strlen(path);
 	char *segpath = (char *) palloc(path_size + 12);
 	char *segpath_suffix_position = segpath + path_size;
-	aoRelFileOperationData_t ud;
+	aoRelFileOperationData_t data;
 
 	strncpy(segpath, path, path_size);
 
-	ud.operation = MD_UNLINK;
-	ud.data.md_unlink.segpath = segpath;
-	ud.data.md_unlink.segpath_suffix_position = segpath_suffix_position;
-	aoRelfileOperationExecute(aoRelFileOperationCallback_unlink, MD_UNLINK, &ud);
+	data.operation = AORELFILEOP_UNLINK_FILES;
+	data.callback_data.unlink_files.segpath = segpath;
+	data.callback_data.unlink_files.segpath_suffix_position = segpath_suffix_position;
+	aoRelfileOperationExecute(AORELFILEOP_UNLINK_FILES,
+	        aoRelFileOperationCallback_unlink_files, &data);
 
 	pfree(segpath);
 }
 
 bool
-aoRelFileOperationCallback_unlink(const int segno, const aoRelfileOperation_t operation,
-		const aoRelFileOperationData_t *user_data) {
+aoRelFileOperationCallback_unlink_files(const int segno,
+                                        const aoRelfileOperationType_t operation,
+                                        const aoRelFileOperationData_t *data)
+{
+	Assert(AORELFILEOP_UNLINK_FILES == data->operation);
+	Assert(AORELFILEOP_UNLINK_FILES == operation);
 
-	char *segpath = user_data->data.md_unlink.segpath;
-	char *segpath_suffix_position = user_data->data.md_unlink.segpath_suffix_position;
+	char *segpath = data->callback_data.unlink_files.segpath;
+	char *segpath_suffix_position = data->callback_data.unlink_files.segpath_suffix_position;
 
 	sprintf(segpath_suffix_position, ".%u", segno);
 	if (unlink(segpath) != 0)
@@ -365,7 +345,7 @@ copy_append_only_data(RelFileNode src, RelFileNode dst,
 	char *srcpath;
 	char *dstpath;
 	bool use_wal;
-	aoRelFileOperationData_t ud;
+	aoRelFileOperationData_t data;
 	/*
 	 * We need to log the copied data in WAL iff WAL archiving/streaming is
 	 * enabled AND it's a permanent relation.
@@ -377,27 +357,28 @@ copy_append_only_data(RelFileNode src, RelFileNode dst,
 
 	copy_file(srcpath, dstpath, dst, 0, use_wal);
 
-	ud.operation = COPY_FILES;
-	ud.data.copy_files.srcpath = srcpath;
-	ud.data.copy_files.dstpath = dstpath;
-	ud.data.copy_files.dst = dst;
-	ud.data.copy_files.useWal = use_wal;
-	aoRelfileOperationExecute(aoRelFileOperationCallback_copy_files, COPY_FILES, &ud);
+	data.operation = AORELFILEOP_COPY_FILES;
+	data.callback_data.copy_files.srcpath = srcpath;
+	data.callback_data.copy_files.dstpath = dstpath;
+	data.callback_data.copy_files.dst = dst;
+	data.callback_data.copy_files.useWal = use_wal;
+	aoRelfileOperationExecute(AORELFILEOP_COPY_FILES,
+	        aoRelFileOperationCallback_copy_files, &data);
 }
 
 bool
-aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperation_t operation,
-								  const aoRelFileOperationData_t *user_data)
+aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperationType_t operation,
+								  const aoRelFileOperationData_t *data)
 {
-	Assert(COPY_FILES == user_data->operation);
-	Assert(COPY_FILES == operation);
+	Assert(AORELFILEOP_COPY_FILES == data->operation);
+	Assert(AORELFILEOP_COPY_FILES == operation);
 
 	char srcsegpath[MAXPGPATH + 12];
 	char dstsegpath[MAXPGPATH + 12];
-	char *srcpath = user_data->data.copy_files.srcpath;
-	char *dstpath = user_data->data.copy_files.dstpath;
-	RelFileNode dst = user_data->data.copy_files.dst;
-    bool use_wal = user_data->data.copy_files.useWal;
+	char *srcpath = data->callback_data.copy_files.srcpath;
+	char *dstpath = data->callback_data.copy_files.dstpath;
+	RelFileNode dst = data->callback_data.copy_files.dst;
+    bool use_wal = data->callback_data.copy_files.useWal;
 
 	sprintf(srcsegpath, "%s.%u", srcpath, segno);
 	if (access(srcsegpath, F_OK) != 0)
@@ -411,7 +392,6 @@ aoRelFileOperationCallback_copy_files(const int segno, const aoRelfileOperation_
 	}
 	sprintf(dstsegpath, "%s.%u", dstpath, segno);
 	copy_file(srcsegpath, dstsegpath, dst, segno, use_wal);
-
 
 	return true;
 }

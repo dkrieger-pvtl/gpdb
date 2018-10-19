@@ -22,12 +22,13 @@ static void transfer_single_new_db(pageCnvCtx *pageConverter,
 					   FileNameMap *maps, int size, char *old_tablespace);
 static void transfer_relfile(pageCnvCtx *pageConverter, FileNameMap *map,
 				 const char *suffix);
-
 static bool transfer_relfile_segment(int segno, pageCnvCtx *pageConverter,
 									 FileNameMap *map, const char *suffix);
 static void transfer_ao(pageCnvCtx *pageConverter, FileNameMap *map);
-static bool aoRelFileOperationCallback_pg_upgrade(const int segno, const aoRelfileOperation_t operation,
-                                      const aoRelFileOperationData_t *user_data);
+static bool aoRelFileOperationCallback_upgrade_files(
+        const int segno,
+        const aoRelfileOperationType_t operation,
+        const aoRelFileOperationData_t *callback_args);
 
 /*
  * transfer_all_new_tablespaces()
@@ -371,27 +372,28 @@ transfer_relfile_segment(int segno, pageCnvCtx *pageConverter, FileNameMap *map,
 static void
 transfer_ao(pageCnvCtx *pageConverter, FileNameMap *map)
 {
-	aoRelFileOperationData_t ud;
+	aoRelFileOperationData_t data;
 
 	transfer_relfile_segment(0, pageConverter, map, "");
 
-	ud.operation = PG_UPGRADE;
-	ud.data.pg_upgrade.pageConverter = pageConverter;
-	ud.data.pg_upgrade.map = map;
-
-	aoRelfileOperationExecute(aoRelFileOperationCallback_pg_upgrade, PG_UPGRADE, &ud);
-
+	data.operation = AORELFILEOP_UPGRADE_FILES;
+	data.callback_data.upgrade_files.pageConverter = pageConverter;
+	data.callback_data.upgrade_files.map = map;
+	aoRelfileOperationExecute(AORELFILEOP_UPGRADE_FILES,
+	        aoRelFileOperationCallback_upgrade_files, &data);
 }
 
 bool
-aoRelFileOperationCallback_pg_upgrade(const int segno, const aoRelfileOperation_t operation,
-									  const aoRelFileOperationData_t *user_data)
+aoRelFileOperationCallback_upgrade_files(
+    const int segno,
+    const aoRelfileOperationType_t operation,
+    const aoRelFileOperationData_t *callback_args)
 {
-	Assert(PG_UPGRADE == user_data->operation);
-	Assert(PG_UPGRADE == operation);
+	Assert(AORELFILEOP_UPGRADE_FILES == callback_args->operation);
+	Assert(AORELFILEOP_UPGRADE_FILES == operation);
 
-	if (!transfer_relfile_segment(segno, user_data->data.pg_upgrade.pageConverter,
-								  user_data->data.pg_upgrade.map , ""))
+	if (!transfer_relfile_segment(segno, callback_args->callback_data.upgrade_files.pageConverter,
+								  callback_args->callback_data.upgrade_files.map , ""))
 		return false;
 
 	return true;

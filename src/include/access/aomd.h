@@ -50,44 +50,50 @@ TruncateAOSegmentFile(File fd,
 
 extern void
 mdunlink_ao(const char *path);
+
 extern void
 copy_append_only_data(RelFileNode src, RelFileNode dst, BackendId backendid, char relpersistence);
 
-/* ADD COMMENTS */
-typedef enum
+typedef
+enum
 {
-	PG_UPGRADE = 1,
-	MD_UNLINK  = 2,
-	COPY_FILES = 3
-} aoRelfileOperation_t;
+	AORELFILEOP_UPGRADE_FILES = 1,
+	AORELFILEOP_UNLINK_FILES  = 2,
+	AORELFILEOP_COPY_FILES = 3
+} aoRelfileOperationType_t;
 
-typedef struct aoRelFileOperationData {
-	aoRelfileOperation_t operation;
+typedef
+struct aoRelFileOperationData {
+	aoRelfileOperationType_t operation;
 	union {
 		struct {
 			void *pageConverter;
 			void *map;
-		} pg_upgrade;
+		} upgrade_files;
 		struct {
 			char *segpath;
 			char *segpath_suffix_position;
-		} md_unlink;
+		} unlink_files;
 		struct {
 			char *srcpath;
 			char *dstpath;
             RelFileNode dst;
 			bool useWal;
 		} copy_files;
-	} data;
+	} callback_data;
 } aoRelFileOperationData_t;
 
-
-typedef bool (*aoRelFileFunction_t)(const int segno, const aoRelfileOperation_t operation,
-									const aoRelFileOperationData_t *user_data);
+/*
+ * return value should be true if the this function correctly performed its
+ *   underlying operation as expected on the segno and false otherwise.
+ */
+typedef
+bool (*aoRelFileFunction_t)(const int segno, const aoRelfileOperationType_t operation,
+                            const aoRelFileOperationData_t *callback_args);
 
 extern void
-aoRelfileOperationExecute(aoRelFileFunction_t relfileOperation,
-                          const aoRelfileOperation_t operation,
-                          const aoRelFileOperationData_t *user_data);
+aoRelfileOperationExecute(const aoRelfileOperationType_t operation,
+						  const aoRelFileFunction_t callback,
+                          const aoRelFileOperationData_t *data);
 
 #endif							/* AOMD_H */
