@@ -6,19 +6,22 @@ $$ language sql;
 
 DROP FUNCTION IF EXISTS toasted();
 CREATE FUNCTION toasted() RETURNS TABLE (
-  chunk_id oid,
-  chunk_seq integer,
-  chunk_data bytea
+  seq_id integer,
+  toastcnt bigint
 )
 AS $$
   declare
      my_relname varchar;
+     my_toast varchar;
+     my_endq varchar;
+     my_ns varchar;
   begin
     select relname into my_relname from pg_class where oid = (
       select reltoastrelid from pg_class where relname = 'example'
     );
 
-     RETURN QUERY EXECUTE 'select * from pg_toast.' || my_relname;
+    select concat('pg_toast','') into my_ns;
+     RETURN QUERY EXECUTE  'select gp_segment_id,count(*) from gp_dist_random(''' || quote_ident(my_ns) || '.' || quote_ident(my_relname) || ''') GROUP BY gp_segment_id;';
   end;
 $$ LANGUAGE plpgsql;
 
@@ -30,7 +33,11 @@ CREATE TABLE example (
 ALTER table example alter column a  set storage external;
 
 --insert into example select * from randomtext(1000000);
-insert into example select * from randomtext(1000000);
+--insert into example select * from randomtext(1000000);
 
-select count(*) from toasted();
+select count(*) from example;
+select * from toasted();
+
+
+
 
