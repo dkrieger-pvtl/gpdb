@@ -211,6 +211,28 @@ usage()
 	exit 0
 }
 
+#TODO create a random number of rows and track that....
+test_setup_table_in_OLD_cluster() {
+	TEST_SETUP_TABLE_NROWS=10
+	psql -p 15432 postgres -c "DROP TABLE IF EXISTS testpgu"
+ 	psql -p 15432 -d postgres -c "CREATE TABLE testpgu (a int) DISTRIBUTED BY (a)"
+ 	psql -p 15432 -d postgres -c "INSERT INTO testpgu select i from generate_series(1,${TEST_SETUP_TABLE_NROWS})i;"
+
+}
+
+test_table_size_to_check_distribution_policy() {
+
+	local port=$1
+	local NUM=`psql -0 -t -p ${port} -d postgres -c "select count(*) from testpgu"`
+	local sNUM="$(echo -e "${NUM}" | tr -d '[:space:]')"
+	if [[ ${sNUM} != ${TEST_SETUP_TABLE_NROWS} ]]; then
+		echo "test_table_size_to_check_distribution_policy FAILED on port ${port}: EXPECTED:${TEST_SETUP_TABLE_NROWS}, GOT:${NUM}"
+	else
+		echo "test_table_size_to_check_distribution_policy PASSED on port ${port}: got ${TEST_SETUP_TABLE_NROWS}"
+	fi
+}
+
+
 # Diffs the dump1.sql and dump2.sql files in the $temp_root, and exits
 # accordingly (exit code 1 if they differ, 0 otherwise).
 diff_and_exit() {
@@ -235,7 +257,9 @@ diff_and_exit() {
 	PGOPTIONS="${pgopts}" ${NEW_BINDIR}/pg_dumpall ${DUMP_OPTS} -f "$temp_root/dump2.sql"
 	echo done
 
+	test_table_size_to_check_distribution_policy 17432
 	gpstop -a ${args}
+
 	export PGPORT=15432
 	export MASTER_DATA_DIRECTORY="${OLD_DATADIR}/qddir/demoDataDir-1"
 
@@ -270,7 +294,7 @@ print_delta_seconds()
 main() {
 	local temp_root=`pwd`/tmp_check
 	local base_dir=`pwd`
-	
+
 	while getopts ":o:b:sCkKmrp" opt; do
 		case ${opt} in
 			o )
@@ -313,11 +337,11 @@ main() {
 				;;
 		esac
 	done
-	
+
 	if [ -z "${OLD_DATADIR}" ] || [ -z "${NEW_BINDIR}" ]; then
 		usage
 	fi
-	
+
 	# This should be rejected by pg_upgrade as well, but this test is not concerned
 	# with testing handling incorrect option handling in pg_upgrade so we'll error
 	# out early instead.
@@ -325,16 +349,16 @@ main() {
 		echo "ERROR: adding and removing checksums are mutually exclusive"
 		exit 1
 	fi
-	
+
 	rm -rf "$temp_root"
 	mkdir -p "$temp_root"
 	if [ ! -d "$temp_root" ]; then
 		echo "ERROR: unable to create workdir: $temp_root"
 		exit 1
 	fi
-	
+
 	trap restore_cluster EXIT
-	
+
 	# The cluster should be running by now, but in case it isn't, issue a restart.
 	# Since we expect the testcluster to be a stock standard gpdemo, we test for
 	# the presence of it. Worst case we powercycle once for no reason, but it's
@@ -347,7 +371,7 @@ main() {
 	else
 		gpstart -a
 	fi
-	
+
 	# Run any pre-upgrade tasks to prep the cluster
 	if [ -f "test_gpdb_pre.sql" ]; then
 		if ! psql -f test_gpdb_pre.sql -v ON_ERROR_STOP=1 postgres; then
@@ -355,7 +379,7 @@ main() {
 			exit 1
 		fi
 	fi
-	
+
 	# Ensure that the catalog is sane before attempting an upgrade. While there is
 	# (limited) catalog checking inside pg_upgrade, it won't catch all issues, and
 	# upgrading a faulty catalog won't work.
@@ -366,15 +390,18 @@ main() {
 			exit 1
 		fi
 	fi
-	
+
 	if (( !$perf_test )) ; then
 		echo -n 'Dumping database schema before upgrade... '
 		${NEW_BINDIR}/pg_dumpall ${DUMP_OPTS} -f "$temp_root/dump1.sql"
 		echo done
 	fi
-	
+
+	test_setup_table_in_OLD_cluster
+	test_table_size_to_check_distribution_policy 15432
+
 	gpstop -a
-	
+
 	# Create a new gpdemo cluster in the temproot. Using the old datadir for the
 	# path to demo_cluster.sh is a bit of a hack, but since this test relies on
 	# gpdemo having been used for ICW it will do for now.
@@ -384,28 +411,28 @@ main() {
 	export MASTER_DATADIR=${temp_root}
 	cp ${OLD_DATADIR}/../lalshell .
 	BLDWRAP_POSTGRES_CONF_ADDONS=fsync=off ${OLD_DATADIR}/../demo_cluster.sh ${DEMOCLUSTER_OPTS}
-	
+
 	NEW_DATADIR="${temp_root}/datadirs"
-	
+
 	export MASTER_DATA_DIRECTORY="${NEW_DATADIR}/qddir/demoDataDir-1"
 	export PGPORT=17432
 	gpstop -a
 	MASTER_DATA_DIRECTORY=""; unset MASTER_DATA_DIRECTORY
 	PGPORT=""; unset PGPORT
 	PGOPTIONS=""; unset PGOPTIONS
-	
+
 	local epoch_for_perf_start=`date +%s`
-	
+
 	# Start by upgrading the master
 	upgrade_qd "${temp_root}/upgrade/qd" "${OLD_DATADIR}/qddir/demoDataDir-1/" "${NEW_DATADIR}/qddir/demoDataDir-1/"
 	print_delta_seconds $epoch_for_perf_start 'number_of_seconds_for_upgrade_qd'
-	
+
 	# If this is a minimal smoketest to ensure that we are handling all objects
 	# properly, then check that the upgraded schema is identical and exit.
 	if (( $smoketest )) ; then
 		diff_and_exit
 	fi
-	
+
 	# Upgrade all the segments and mirrors. In a production setup the segments
 	# would be upgraded first and then the mirrors once the segments are verified.
 	# In this scenario we can cut corners since we don't have any important data
@@ -414,7 +441,7 @@ main() {
 	do
 		j=$(($i-1))
 		k=$(($i+1))
-	
+
 		# Replace the QE datadir with a copy of the QD datadir, in order to
 		# bootstrap the QE upgrade so that we don't need to dump/restore
 		mv "${NEW_DATADIR}/dbfast$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/"
@@ -429,22 +456,22 @@ main() {
 		rm -f "${NEW_DATADIR}/dbfast$i/demoDataDir$j/gpssh.conf"
 		rm -rf "${NEW_DATADIR}/dbfast$i/demoDataDir$j/gpperfmon"
 		# Upgrade the segment data files without dump/restore of the schema
-	
+
 		local epoch_for_perf_QEstart=`date +%s`
 		upgrade_segment "${temp_root}/upgrade/dbfast$i" "${OLD_DATADIR}/dbfast$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/"
 		print_delta_seconds $epoch_for_perf_QEstart 'number_of_seconds_for_upgrade_qe'
-	
+
 		if (( $mirrors )) ; then
 			epoch_for_perf_QEMstart=`date +%s`
 			upgrade_segment "${temp_root}/upgrade/dbfast_mirror$i" "${OLD_DATADIR}/dbfast_mirror$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast_mirror$i/demoDataDir$j/"
 			print_delta_seconds $epoch_for_perf_QEMstart 'number_of_seconds_for_upgrade_qdm'
 		fi
 	done
-	
+
 	print_delta_seconds $epoch_for_perf_start 'number_of_seconds_for_upgrade'
-	
+
 	. ${NEW_BINDIR}/../greenplum_path.sh
-	
+
 	if (( !$perf_test )) ; then
 		diff_and_exit
 	fi

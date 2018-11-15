@@ -47,7 +47,7 @@ check:
 endif
 
 installcheck: test_gpdb.sh all
-	bash $< -o $(top_builddir)/gpAux/gpdemo/datadirs/ -b $(DESTDIR)$(bindir)
+	bash $< -r -o $(top_builddir)/gpAux/gpdemo/datadirs/ -b $(DESTDIR)$(bindir)
 
 perfcheck: test_gpdb.sh all
 	bash $< -p -r -o $(top_builddir)/gpAux/gpdemo/datadirs/ -b $(DESTDIR)$(bindir)
