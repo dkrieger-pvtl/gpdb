@@ -2016,7 +2016,7 @@ def impl(context, working_directory):
     shutil.rmtree(context.working_directory, ignore_errors=True)
     os.mkdir(context.working_directory)
 
-def _create_cluster(context, master_host, segment_host_list):
+def _create_cluster(context, master_host, segment_host_list, with_mirrors=False):
     if segment_host_list == "":
         segment_host_list = []
     else:
@@ -2028,41 +2028,28 @@ def _create_cluster(context, master_host, segment_host_list):
         with dbconn.connect(dbconn.DbURL(dbname='template1')) as conn:
             curs = dbconn.execSQL(conn, "select count(*) from gp_segment_configuration where role='m';")
             count = curs.fetchall()[0][0]
-            if count == 0:
+            if not with_mirrors and count == 0:
                 print "Skipping creating a new cluster since the cluster is primary only already."
+                return
+            elif with_mirrors and count > 0:
+                print "Skipping creating a new cluster since the cluster has mirrors already."
                 return
     except:
         pass
 
     testcluster = TestCluster(hosts=[master_host]+segment_host_list, base_dir=context.working_directory)
     testcluster.reset_cluster()
-    testcluster.create_cluster(with_mirrors=False)
-    context.gpexpand_mirrors_enabled = False
+    testcluster.create_cluster(with_mirrors=with_mirrors)
+    context.gpexpand_mirrors_enabled = with_mirrors
 
 @then('a cluster is created with no mirrors on "{master_host}" and "{segment_host_list}"')
 @given('a cluster is created with no mirrors on "{master_host}" and "{segment_host_list}"')
 def impl(context, master_host, segment_host_list):
-    _create_cluster(context, master_host, segment_host_list)
+    _create_cluster(context, master_host, segment_host_list, with_mirrors=False)
 
-@given('a cluster is created with mirrors on "{master_host}" and "{segment_host}"')
-def impl(context, master_host, segment_host):
-    del os.environ['MASTER_DATA_DIRECTORY']
-    os.environ['MASTER_DATA_DIRECTORY'] = os.path.join(context.working_directory,
-                                                       'data/master/gpseg-1')
-    try:
-        with dbconn.connect(dbconn.DbURL(dbname='template1')) as conn:
-            curs = dbconn.execSQL(conn, "select count(*) from gp_segment_configuration where role='m';")
-            count = curs.fetchall()[0][0]
-            if count > 0:
-                print "Skipping creating a new cluster since the cluster has mirrors already."
-                return
-    except:
-        pass
-
-    testcluster = TestCluster(hosts=[master_host,segment_host], base_dir=context.working_directory)
-    testcluster.reset_cluster()
-    testcluster.create_cluster(with_mirrors=True)
-    context.gpexpand_mirrors_enabled = True
+@given('a cluster is created with mirrors on "{master_host}" and "{segment_host_list}"')
+def impl(context, master_host, segment_host_list):
+    _create_cluster(context, master_host, segment_host_list, with_mirrors=True)
 
 @given('the user runs gpexpand interview to add {num_of_segments} new segment and {num_of_hosts} new host "{hostnames}"')
 @when('the user runs gpexpand interview to add {num_of_segments} new segment and {num_of_hosts} new host "{hostnames}"')

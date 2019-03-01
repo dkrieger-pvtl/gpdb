@@ -127,71 +127,110 @@ def impl(context):
 @then('mirror hostlist matches the one saved in context')
 def impl(context):
     gparray = GpArray.initFromCatalog(dbconn.DbURL())
-    old_contentId_to_host = {}
-    curr_contentId_to_host = {}
+    old_content_to_host = {}
+    curr_content_to_host = {}
 
     # Map content IDs to hostnames for every mirror, for both the saved GpArray
     # and the current one.
-    for (array, hostMap) in [(context.gparray, old_contentId_to_host), (gparray, curr_contentId_to_host)]:
+    for (array, hostMap) in [(context.gparray, old_content_to_host), (gparray, curr_content_to_host)]:
         for host in array.get_hostlist(includeMaster=False):
             for mirror in array.get_list_of_mirror_segments_on_host(host):
                 hostMap[mirror.getSegmentContentId()] = host
 
-    if len(curr_contentId_to_host) != len(old_contentId_to_host):
+    if len(curr_content_to_host) != len(old_content_to_host):
         raise Exception("Number of mirrors doesn't match between old and new clusters")
 
-    for key in old_contentId_to_host.keys():
-        if curr_contentId_to_host[key] != old_contentId_to_host[key]:
-            raise Exception("Mirror host doesn't match for contentId %s (old host=%s) (new host=%s)"
-            % (key, old_contentId_to_host[key], curr_contentId_to_host[key]))
+    for key in old_content_to_host.keys():
+        if curr_content_to_host[key] != old_content_to_host[key]:
+            raise Exception("Mirror host doesn't match for content %s (old host=%s) (new host=%s)"
+            % (key, old_content_to_host[key], curr_content_to_host[key]))
 
+@then('verify that mirror segments are in "{mirror_config}" configuration')
+def impl(context, mirror_config):
+    if mirror_config not in ["group", "spread"]:
+        raise Exception('"%s" is not a valid mirror configuration for this step; options are "group" and "spread".')
 
-@then('verify the database has mirrors in spread configuration')
-def impl(context):
-    hostname_to_primary_contentId_list = {}
-    mirror_contentId_to_hostname = {}
     gparray = GpArray.initFromCatalog(dbconn.DbURL())
     host_list = gparray.get_hostlist(includeMaster=False)
 
-    for host in host_list:
-        primaries = gparray.get_list_of_primary_segments_on_host(host)
-        primary_content_list = []
-        for primary in primaries:
-            primary_content_list.append(primary.getSegmentContentId())
+    primary_to_mirror_host_map = {}
+    primary_content_map = {}
+    # Create a map from each host to the hosts holding the mirrors of all the
+    # primaries on the original host, e.g. the primaries for contents 0 and 1
+    # are on sdw1, the mirror for content 0 is on sdw2, and the mirror for
+    # content 1 is on sdw4, then primary_content_map[sdw1] = [sdw2, sdw4]
+    for segmentPair in gparray.segmentPairs:
+        primary_host, mirror_host = segmentPair.get_hosts()
+        pair_content = segmentPair.primaryDB.content
 
-        hostname_to_primary_contentId_list[host] = primary_content_list
+        # Regardless of mirror configuration, a primary should never be mirrored on the same host
+        if primary_host == mirror_host:
+            raise Exception('Host %s has both primary and mirror for content %d' % (primary_host, pair_content))
 
-        mirrors = gparray.get_list_of_mirror_segments_on_host(host)
-        for mirror in mirrors:
-            mirror_contentId_to_hostname[mirror.getSegmentContentId()] = host
+        primary_content_map[primary_host] = pair_content
+        if primary_host not in primary_to_mirror_host_map:
+            primary_to_mirror_host_map[primary_host] = set()
+        primary_to_mirror_host_map[primary_host].add(mirror_host)
 
-    # Verify that for each host its mirrors are correctly spread.
-    # That is for a given host, all of its primaries would have
-    # mirrors on separate hosts.  Therefore, we go through the list of
-    # primaries on a host and compute the set of hosts which have the
-    # corresponding mirrors.  If spreading is working, then the
-    # cardinality of the mirror_host_set should equal the number of
-    # primaries on the given host.
 
-    for hostname in host_list:
+    if mirror_config == "spread":
+        # In spread configuration, each primary on a given host has its mirror
+        # on a different host, and no host has both the primary and the mirror
+        # for a given segment.  For this to work, the cluster must have N hosts,
+        # where N is 1 more than the number of segments on each host.
+        # Thus, if the list of mirror hosts for a given primary host consists
+        # of exactly the list of hosts in the cluster minus that host itself,
+        # the mirrors in the cluster are correctly spread.
 
-        # For the primaries on a given host, put the hosts of the
-        # corresponding mirrors into this set (a set to eliminate
-        # duplicate hostnames in case two mirrors end up on the same
-        # host).
+        for primary_host in primary_to_mirror_host_map:
+            mirror_host_set = primary_to_mirror_host_map[primary_host]
 
-        mirror_host_set = set()
-        primary_content_list = hostname_to_primary_contentId_list[hostname]
-        for contentId in primary_content_list:
-            mirror_host = mirror_contentId_to_hostname[contentId]
-            if mirror_host == hostname:
-                raise Exception('host %s has both primary and mirror for contentID %d' %
-                                (hostname, contentId))
+            other_host_set = set(host_list)
+            other_host_set.remove(primary_host)
+            if other_host_set != mirror_host_set:
+                raise Exception('Expected primaries on %s to be mirrored to %s, but they are mirrored to %s' %
+                        (primary_host, other_host_set, mirror_host_set))
+    elif mirror_config == "group":
+        # In group configuration, all primaries on a given host are mirrored to
+        # a single other host.
+        # Thus, if the list of mirror hosts for a given primary host consists
+        # of a single host, and that host is not the same as the primary host,
+        # the mirrors in the cluster are correctly grouped.
 
-            mirror_host_set.add(mirror_host)
+        for primary_host in primary_to_mirror_host_map:
+            num_mirror_hosts = len(primary_to_mirror_host_map[primary_host])
 
-        num_primaries = len(primary_content_list)
-        num_mirror_hosts = len(mirror_host_set)
-        if num_primaries != num_mirror_hosts:
-            raise Exception('host %s has %d primaries spread on only %d hosts' %
-                            (hostname, num_primaries, num_mirror_hosts))
+            if num_mirror_hosts != 1:
+                raise Exception('Expected primaries on %s to all be mirrored to the same host, but they are mirrored to %d different hosts' %
+                        (primary_host, num_mirror_hosts))
+
+@given('a sample gpmovemirrors input file is created in "{mirror_config}" configuration')
+def impl(context, mirror_config):
+    if mirror_config not in ["group", "spread"]:
+        raise Exception('"%s" is not a valid mirror configuration for this step; options are "group" and "spread".')
+    # The format for a line in the gpmovemirrors input file is
+    #   <old_address>:<port>:<datadir> <new_address>:<port>:<datadir>
+    # Port numbers and addresses are hardcded to TestCluster values, assuming a 3-host 2-segment cluster.
+    input_filename = "/tmp/gpmovemirrors_input_%s" % mirror_config
+    line_template = "%s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d %s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d\n"
+    # Group mirroring (TestCluster default): sdw1 mirrors to sdw2, sdw2 mirrors to sdw3, sdw3 mirrors to sdw2
+    group_port_map = {0: 21500, 1: 21501, 2: 21500, 3: 21501, 4: 21500, 5: 21501}
+    group_address_map = {0: "sdw2", 1: "sdw2", 2: "sdw3", 3: "sdw3", 4: "sdw1", 5: "sdw1"}
+    # Spread mirroring: each host mirrors one primary to each of the other two hosts
+    spread_port_map = {0: 21500, 1: 21500, 2: 21500, 3: 21501, 4: 21501, 5: 21501}
+    spread_address_map = {0: "sdw2", 1: "sdw3", 2: "sdw1", 3: "sdw3", 4: "sdw1", 5: "sdw2"}
+    # The mirrors for contents 0 and 3 are excluded from the above maps because they are the same in either configuration
+    with open(input_filename, "w") as fd:
+        for content in [1,2,4,5]:
+            if mirror_config == "spread":
+                old_port = group_port_map[content]
+                old_address = group_address_map[content]
+                new_port = spread_port_map[content]
+                new_address = spread_address_map[content]
+            else:
+                old_port = spread_port_map[content]
+                old_address = spread_address_map[content]
+                new_port = group_port_map[content]
+                new_address = group_address_map[content]
+            fd.write(line_template % (old_address, old_port, content, new_address, new_port, content))
+        fd.flush()
