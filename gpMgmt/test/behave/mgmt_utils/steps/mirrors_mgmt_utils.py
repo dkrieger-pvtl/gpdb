@@ -2,6 +2,7 @@ from behave import given, when, then
 
 from test.behave_utils.utils import *
 
+# This file contains steps for gpaddmirrors and gpmovemirrors tests
 
 def _get_mirror_count():
     with dbconn.connect(dbconn.DbURL(dbname='template1')) as conn:
