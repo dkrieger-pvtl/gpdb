@@ -212,7 +212,7 @@ def impl(context, mirror_config):
     #   <old_address>:<port>:<datadir> <new_address>:<port>:<datadir>
     # Port numbers and addresses are hardcded to TestCluster values, assuming a 3-host 2-segment cluster.
     input_filename = "/tmp/gpmovemirrors_input_%s" % mirror_config
-    line_template = "%s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d %s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d\n"
+    line_template = "%s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d %s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d_moved\n"
     # Group mirroring (TestCluster default): sdw1 mirrors to sdw2, sdw2 mirrors to sdw3, sdw3 mirrors to sdw2
     group_port_map = {0: 21500, 1: 21501, 2: 21500, 3: 21501, 4: 21500, 5: 21501}
     group_address_map = {0: "sdw2", 1: "sdw2", 2: "sdw3", 3: "sdw3", 4: "sdw1", 5: "sdw1"}
