@@ -17,7 +17,7 @@ inputs:
 
 run:
   path: gpdb_src/concourse/scripts/test_upgrade.bash
-  args: [ '-c', '-t', 'bin_gpdb_centos6', '-s', 'sqldump/dump.sql.xz' ]
+  args: [ '-c', '-t', 'bin_gpdb_centos6', '-s', 'sqldump/164119474_5to6_pipeline_simple.sql.xz' ]
 
 params:
   DEBUG_UPGRADE: ""

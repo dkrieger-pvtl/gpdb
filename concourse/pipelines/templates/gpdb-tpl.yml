@@ -355,14 +355,14 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: ((pipeline-name))/icw_gporca_centos6_dump/dump.sql.xz
 
-- name: icw_gporca_centos6_dump5
+- name: icw_gporca_centos6_dump5_simple
   type: s3
   source:
     access_key_id: ((5x-sqldump-access-key))
     bucket: ((5x-sqldump-bucket))
     region_name: ((5x-aws-region))
     secret_access_key: ((5x-sqldump-secret-key))
-    versioned_file: gpdb5/dump.sql.xz
+    versioned_file: gpdb5/164119474_5to6_pipeline_simple.sql.xz
 
 {% endif %}
 {% if "aix7" in os_types %}
@@ -1939,7 +1939,7 @@ jobs:
     - get: gpdb_src
     - get: bin_gpdb_centos6
     - get: bin_gpdb5_centos6
-    - get: icw_gporca_centos6_dump5
+    - get: icw_gporca_centos6_dump5_simple
     - get: ccp_src
   - put: terraform
     params:
@@ -1964,7 +1964,7 @@ jobs:
   - task: test_upgrade
     file: gpdb_src/concourse/tasks/test_upgrade.yml
     input_mapping:
-      sqldump: icw_gporca_centos6_dump5
+      sqldump: icw_gporca_centos6_dump5_simple
     params:
       NUMBER_OF_NODES: 2
 
