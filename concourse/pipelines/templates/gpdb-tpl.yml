@@ -49,6 +49,7 @@ groups:
 {% endif %}
 {% if "centos6" in os_types and "CLI" in test_sections %}
   - pg_upgrade
+  - pg_upgrade-5to6
 {% endif %}
 {% if "centos7" in os_types %}
   - icw_gporca_centos7
@@ -176,6 +177,7 @@ groups:
 {% endif %}
 {% if "centos6" in os_types and "CLI" in test_sections %}
   - pg_upgrade
+  - pg_upgrade-5to6
 {% endif %}
 {% if "centos7" in os_types %}
   - icw_gporca_centos7
@@ -259,6 +261,7 @@ groups:
   - compile_gpdb_centos6
 {% if "centos6" in os_types and "ICW" in test_sections %}
   - pg_upgrade
+  - pg_upgrade-5to6
 {% endif %}
 
 {% endif %}
@@ -511,6 +514,17 @@ resources:
 
 {% endif %}
 {% if "centos6" in os_types %}
+{% if "ICW" in test_sections %}
+- name: bin_gpdb5_centos6
+  type: s3
+  source:
+    access_key_id: ((5x-bucket-access-key-id))
+    bucket: ((5x-bucket-name))
+    region_name: ((5x-aws-region))
+    secret_access_key: ((5x-bucket-secret-access-key))
+    versioned_file: ((5x-bin_gpdb_centos_versioned_file))
+{% endif %}
+
 - name: bin_gpdb_centos6
   type: gcs
   source:
@@ -1906,6 +1920,49 @@ jobs:
     params:
       NUMBER_OF_NODES: 2
 
+- name: pg_upgrade-5to6
+  ensure:
+    <<: *set_failed
+  on_success:
+    <<: *ccp_destroy
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [icw_gporca_centos6]
+    - get: bin_gpdb_centos6
+      passed: [icw_gporca_centos6]
+      trigger: [[ test_trigger ]]
+    - get: bin_gpdb5_centos6
+    - get: icw_gporca_centos6_dump
+      passed: [icw_gporca_centos6]
+    - get: ccp_src
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        instance_type: n1-standard-2
+        number_of_nodes: 2
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos6
+    input_mapping:
+      gpdb_binary: bin_gpdb5_centos6
+  - task: set_gpinitsystem_config
+    file: gpdb_src/concourse/tasks/set_gpinitsystem_config.yml
+    params:
+      GPINITSYSTEM_CONFIG: gpdb_src/concourse/scripts/configurations/pg_upgrade_gpinitsystem_config
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: test_upgrade
+    file: gpdb_src/concourse/tasks/test_upgrade.yml
+    input_mapping:
+      sqldump: icw_gporca_centos6_dump
+    params:
+      NUMBER_OF_NODES: 2
+
 - name: gpexpand
   plan:
   - aggregate:
@@ -2150,6 +2207,7 @@ jobs:
  ##     - MADlib_Test_orca_centos7
  ##     - MADlib_Test_planner_centos7
       - pg_upgrade
+      - pg_upgrade-5to6
       - gpaddmirrors
       - gpexpand
       - gpcheck

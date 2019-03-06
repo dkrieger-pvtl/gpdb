@@ -205,6 +205,7 @@ def how_to_use_generated_pipeline_message():
         msg += '    -l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \\\n'
         msg += '    -l ~/workspace/gp-continuous-integration/secrets/gpdb_master-ci-secrets.dev.yml \\\n'
         msg += '    -l ~/workspace/gp-continuous-integration/secrets/ccp_ci_secrets_gpdb-dev.yml \\\n'
+        msg += '    -l ~/workspace/gp-continuous-integration/secrets/upgrade-5-to-6.yml \\\n'
         msg += '    -v gpdb-git-remote=%s \\\n' % suggested_git_remote()
         msg += '    -v gpdb-git-branch=%s \\\n' % suggested_git_branch()
         msg += '    -v pipeline-name=%s \n' % pipeline_name
