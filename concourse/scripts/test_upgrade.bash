@@ -1,7 +1,9 @@
 #!/bin/bash
-#
-# Copied from the standard CCP install_gpdb.sh script.
-#
+
+# This file performs a full upgrade from a local demo cluster or a 
+#   concourse-based cluster created with CCP.  Locally, your old demo cluster
+#   must be running before this script is called.
+
 set -euo pipefail
 
 # Set the DEBUG_UPGRADE envvar to a nonempty value to get (extremely) verbose
@@ -328,6 +330,9 @@ exit_with_usage() {
     echo
     echo ' -c           Operate in "Concourse mode", which makes assumptions '
     echo '              about cluster locations and settings'
+    echo ' -G           Local-mode only. The GPHOME location of the new cluster. '
+    echo '              Defaults to the current GPHOME (for a self-to-self '
+    echo '              upgrade).'
     echo ' -n           Concourse-mode only: number of separate hosts to install '
     echo '              GPDB to'
     echo ' -s           Location of an xz-zipped SQL dump file to restore before '
@@ -349,10 +354,13 @@ GPDB_TARBALL_DIR=
 # given, fall back to the NUMBER_OF_NODES environment variable.
 NUMBER_OF_NODES=${NUMBER_OF_NODES:-}
 
-while getopts "cn:s:t:h" option; do
+while getopts "cG:n:s:t:h" option; do
     case "$option" in
     c)
         CONCOURSE_MODE=1
+        ;;
+    G)
+        NEW_GPHOME=$OPTARG
         ;;
     n)
         NUMBER_OF_NODES=$OPTARG
@@ -389,7 +397,7 @@ else
     # validate_local_envvars() implementation as well.
     MASTER_HOST=localhost
     OLD_GPHOME=${GPHOME}
-    NEW_GPHOME=${GPHOME}
+    NEW_GPHOME=${NEW_GPHOME:-${GPHOME}}
     DATADIR_PREFIX=$(dirname $(dirname ${MASTER_DATA_DIRECTORY}))
     OLD_MASTER_DATA_DIRECTORY=${MASTER_DATA_DIRECTORY}
     NEW_MASTER_DATA_DIRECTORY=$(get_new_datadir "${MASTER_DATA_DIRECTORY}")
