@@ -1937,13 +1937,9 @@ jobs:
   plan:
   - aggregate:
     - get: gpdb_src
-      passed: [icw_gporca_centos6]
     - get: bin_gpdb_centos6
-      passed: [icw_gporca_centos6]
-      trigger: [[ test_trigger ]]
     - get: bin_gpdb5_centos6
     - get: icw_gporca_centos6_dump5
-      passed: [icw_gporca_centos6]
     - get: ccp_src
   - put: terraform
     params:
