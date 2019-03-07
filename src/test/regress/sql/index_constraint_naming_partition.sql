@@ -36,13 +36,14 @@ CREATE FUNCTION partition_tables() RETURNS TABLE(partition_name name, parent_nam
 $fn$;
 
 DROP FUNCTION IF EXISTS constraints_and_indices();
-CREATE FUNCTION constraints_and_indices() RETURNS TABLE(table_name regclass, constraint_name name, index_name regclass, constraint_type char)
+CREATE FUNCTION constraints_and_indices() RETURNS TABLE(table_name regclass, constraint_name name, index_name regclass, constraint_type char, connspoid OID)
   LANGUAGE SQL STABLE STRICT AS $fn$
     SELECT
       con.conrelid::regclass,
       con.conname,
       con.conindid::regclass,
-      con.contype::char
+      con.contype::char,
+      con.connamespace
     FROM
         pg_constraint con
     WHERE
@@ -54,35 +55,38 @@ $fn$;
 --displays all dependencies and their types
 DROP FUNCTION IF EXISTS dependencies();
 SET gp_recursive_cte_prototype TO on;
-CREATE FUNCTION dependencies() RETURNS TABLE( depname NAME, classtype "char",
-                                              refname NAME, refclasstype "char", classid REGCLASS,  objid OID, objsubid INTEGER,
+CREATE FUNCTION dependencies() RETURNS TABLE( depname NAME, classtype "char", depnsoid OID,
+                                              refname NAME, refclasstype "char", refnsoid OID,
+                                              classid REGCLASS,  objid OID, objsubid INTEGER,
                                               refclassid REGCLASS, refobjid OID, refobjsubid OID, deptype "char" )
   LANGUAGE SQL STABLE STRICT AS $fn$
 WITH RECURSIVE
-     w AS (
-       SELECT classid::regclass,
-              objid,
-              objsubid,
-              refclassid::regclass,
-              refobjid,
-              refobjsubid,
-              deptype
-       FROM pg_depend d
-       WHERE classid IN ('pg_constraint'::regclass, 'pg_class'::regclass)
-         AND (objid > 16384 OR refobjid > 16384)
+  w AS (
+    SELECT classid::regclass,
+           objid,
+           objsubid,
+           refclassid::regclass,
+           refobjid,
+           refobjsubid,
+           deptype
+    FROM pg_depend d
+    WHERE classid IN ('pg_constraint'::regclass, 'pg_class'::regclass)
+      AND (objid > 16384 OR refobjid > 16384)
 
-       UNION
+    UNION
 
-       SELECT d2.*
-       FROM w
-              INNER JOIN pg_depend d2
-                         ON (w.refclassid, w.refobjid, w.refobjsubid) =
-                            (d2.classid, d2.objid, d2.objsubid)
-     )
+    SELECT d2.*
+    FROM w
+           INNER JOIN pg_depend d2
+                      ON (w.refclassid, w.refobjid, w.refobjsubid) =
+                         (d2.classid, d2.objid, d2.objsubid)
+  )
 SELECT COALESCE(con.conname, c.relname, t.typname, nsp.nspname)     AS depname,
        COALESCE(con.contype, c.relkind, '-') as classtype,
+       COALESCE(con.connamespace, c.relnamespace, t.typnamespace, nsp.oid) as depnsoid,
        COALESCE(con2.conname, c2.relname, t2.typname, nsp2.nspname) AS refname,
        COALESCE(con2.contype, c2.relkind, '-') as refclasstype,
+       COALESCE(con2.connamespace, c2.relnamespace, t2.typnamespace, nsp2.oid) as refnsoid,
        w.*
 FROM w
        LEFT JOIN pg_constraint con
@@ -104,74 +108,71 @@ FROM w
   ;
 $fn$;
 
---displays all partition hierarchies in the database.
-DROP FUNCTION IF EXISTS constraints_and_indices_for_partition_tables();
-CREATE FUNCTION constraints_and_indices_for_partition_tables() RETURNS TABLE(table_name regclass, parent_table name, root_table name, constraint_name name, index_name regclass, constraint_type char)
+--dependencies() table but with namespace name instead of namespace oid
+DROP FUNCTION IF EXISTS dependencies_nsname();
+CREATE FUNCTION dependencies_nsname() RETURNS TABLE(depname NAME, classtype "char", depnsname NAME,
+                                                                  refname NAME, refclasstype "char", refnsname NAME,
+                                                                  classid REGCLASS, objsubid INTEGER,
+                                                                  refclassid REGCLASS, refobjsubid OID, deptype "char")
   LANGUAGE SQL STABLE STRICT AS $fn$
-  (SELECT con.conrelid::regclass,      --pg_partitions contains all but root
-          part.parentpartitiontablename,
-          part.tablename,
-          con.conname,
-          con.conindid::regclass,
-          con.contype::char
-   FROM pg_constraint con
-          INNER JOIN pg_partitions part
-                     ON CAST(con.conrelid::regclass AS name) =
-                        part.partitiontablename
-   WHERE con.contype != 'c'
-  ) UNION
-  (SELECT con.conrelid::regclass,      --pg_partition contains root
-          NULL,
-          NULL,
-          con.conname,
-          con.conindid::regclass,
-          con.contype::char
-   FROM pg_constraint con
-          INNER JOIN pg_partition rootpart
-                     ON con.conrelid::regclass =
-                        rootpart.parrelid::regclass
-   WHERE con.contype != 'c' AND rootpart.parlevel = 0
-  )
-  ORDER BY conrelid
-    ;
+SELECT t.depname, t.classtype, nsp.nspname as depnsame, t.refname, t.refclasstype, 
+       nsp2.nspname as refnsname, t.classid, t.objsubid, t.refclassid, t.refobjsubid, t.deptype
+FROM
+  (SELECT depname, classtype, depnsoid, refname, refclasstype, refnsoid, 
+          classid, objsubid, refclassid, refobjsubid, deptype
+   FROM dependencies()
+   WHERE
+      (refclassid='pg_class'::REGCLASS OR refclassid='pg_constraint'::REGCLASS) AND (classtype!='c')
+      AND (NOT (classtype='r' AND classid='pg_class'::REGCLASS AND refclasstype='r' AND refclassid='pg_class'::REGCLASS))
+  ) as t
+  JOIN pg_namespace nsp ON t.depnsoid=nsp.oid
+  JOIN pg_namespace nsp2 ON t.refnsoid=nsp2.oid;
 $fn$;
 
-
 DROP FUNCTION IF EXISTS partition_tables_show_all();
-CREATE FUNCTION partition_tables_show_all() RETURNS TABLE(partition_name name, parent_name name, root_name name, constraint_name name, index_name name, constraint_type char) --, deptype "char")
+CREATE FUNCTION partition_tables_show_all() RETURNS TABLE(partition_name name, parent_name name, root_name name, constraint_name name, index_name name, constraint_type char)
+--connspname NAME) --, deptype "char")
   LANGUAGE SQL STABLE STRICT AS $fn$
-  SELECT p.partition_name, p.parent_name, p.root_name, c.constraint_name, c.index_name, c.constraint_type --, d.deptype
+  SELECT p.partition_name, p.parent_name, p.root_name, c.constraint_name, c.index_name, c.constraint_type --nsp.nspname --, d.deptype
     FROM 
-         (SELECT partition_name, parent_name, root_name from partition_tables()) as p
+         (SELECT partition_name, parent_name, root_name FROM partition_tables()) as p
     LEFT JOIN 
-         (SELECT table_name, constraint_name, CAST(index_name as name), constraint_type from constraints_and_indices()) as c
+         (SELECT table_name, constraint_name, CAST(index_name as name), constraint_type, connspoid from constraints_and_indices()) as c
     ON p.partition_name = CAST(c.table_name as name)
-   -- LEFT JOIN 
-   --     (SELECT depname, refname, classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype  from dependencies()) as d
-   -- ON CAST(c.table_name as NAME) = d.depname  
-    ORDER BY p.partition_name;
+    JOIN pg_class as pgc ON p.root_name=pgc.relname     --find root_name's namespace name
+    JOIN pg_namespace as nsp
+    ON  pgc.relnamespace=nsp.oid WHERE nsp.nspname='index_constraint_naming_partition'
+    ORDER BY p.partition_name, p.parent_name, p.root_name, c.constraint_name, c.index_name, c.constraint_type;  --make sure output is stabely ordered for pg_regress
 
 $fn$;
 
 DROP FUNCTION IF EXISTS dependencies_show_for_idx();
 CREATE FUNCTION dependencies_show_for_idx() RETURNS TABLE(depname name, refname name, depType "char")
   LANGUAGE SQL STABLE STRICT AS $fn$
-  SELECT depname,refname,deptype FROM dependencies() WHERE (depname LIKE '%idx%') OR (refname LIKE '%idx%') ORDER BY depname;
+  SELECT t.depname, t.refname, t.deptype FROM
+        (SELECT depname, depnsname, refname, refnsname, deptype 
+          FROM dependencies_nsname() 
+            WHERE 
+                ((depname LIKE '%idx%') OR (refname LIKE '%idx%')) 
+                AND (depnsname='index_constraint_naming_partition' AND refnsname='index_constraint_naming_partition')) as t
+       ORDER BY t.depname, t.refname, t.deptype;   --make sure output is stabely ordered for pg_regress
 $fn$;
 
 --return all dependencies of interest here...
 DROP FUNCTION IF EXISTS dependencies_show_for_cons_idx();
-CREATE FUNCTION dependencies_show_for_cons_idx() RETURNS TABLE(depname NAME, classtype "char",
+CREATE FUNCTION dependencies_show_for_cons_idx() RETURNS TABLE(depname NAME, classtype "char", 
                                                                refname NAME, refclasstype "char", classid REGCLASS, objsubid INTEGER,
                                                                refclassid REGCLASS, refobjsubid OID, deptype "char")
   LANGUAGE SQL STABLE STRICT AS $fn$
-  SELECT depname, classtype, refname, refclasstype, classid, objsubid, refclassid, refobjsubid, deptype FROM dependencies() WHERE
+  SELECT t.depname, t.classtype, t.refname, t.refclasstype, t.classid, t.objsubid, t.refclassid, t.refobjsubid, t.deptype FROM
+      (SELECT depname, classtype, depnsname, refname, refclasstype, refnsname, classid, objsubid, refclassid, refobjsubid, deptype FROM dependencies_nsname() WHERE
     (refclassid='pg_class'::REGCLASS OR refclassid='pg_constraint'::REGCLASS) AND (classtype!='c') 
     AND (NOT (classtype='r' AND classid='pg_class'::REGCLASS AND refclasstype='r' AND refclassid='pg_class'::REGCLASS)) 
-  ORDER BY classtype, refclasstype, deptype;
+    AND (depnsname='index_constraint_naming_partition' AND refnsname='index_constraint_naming_partition')) as t
+  ORDER BY t.classtype, t.refclasstype, t.deptype, t.depname, t.refname, t.classid, t.objsubid, t.refclassid, t.refobjsubid;   --make sure output is stabely ordered for pg_regress
 $fn$;
 
-
+--return all dependencies of interest here...
 
 --############################ TWO LEVEL ##################################
 
