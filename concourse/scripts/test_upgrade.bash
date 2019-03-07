@@ -110,12 +110,14 @@ load_old_db_data() {
     '
 }
 
+# TODO  HACK...source both...
 dump_cluster() {
     # Dump the entire cluster contents to file, using the new pg_dumpall.
     local dumpfile=$1
 
     ssh -n ${MASTER_HOST} "
         source ${NEW_GPHOME}/greenplum_path.sh
+        source ${OLD_GPHOME}/greenplum_path.sh
         pg_dumpall -f '$dumpfile' ${PSQL_ADDOPTS}
     "
 }
