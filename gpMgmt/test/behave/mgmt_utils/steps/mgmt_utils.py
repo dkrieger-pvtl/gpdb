@@ -2016,7 +2016,7 @@ def impl(context, working_directory):
     shutil.rmtree(context.working_directory, ignore_errors=True)
     os.mkdir(context.working_directory)
 
-def _create_cluster(context, master_host, segment_host_list, with_mirrors=False, mirror_configuration='group'):
+def _create_cluster(context, master_host, segment_host_list, with_mirrors=False, mirroring_configuration='group'):
     if segment_host_list == "":
         segment_host_list = []
     else:
@@ -2039,7 +2039,7 @@ def _create_cluster(context, master_host, segment_host_list, with_mirrors=False,
 
     testcluster = TestCluster(hosts=[master_host]+segment_host_list, base_dir=context.working_directory)
     testcluster.reset_cluster()
-    testcluster.create_cluster(with_mirrors=with_mirrors)
+    testcluster.create_cluster(with_mirrors=with_mirrors, mirroring_configuration=mirroring_configuration)
     context.gpexpand_mirrors_enabled = with_mirrors
 
 @then('a cluster is created with no mirrors on "{master_host}" and "{segment_host_list}"')
@@ -2049,7 +2049,7 @@ def impl(context, master_host, segment_host_list):
 
 @given('a cluster is created with mirrors on "{master_host}" and "{segment_host_list}"')
 def impl(context, master_host, segment_host_list):
-    _create_cluster(context, master_host, segment_host_list, with_mirrors=True, mirror_configuration='group')
+    _create_cluster(context, master_host, segment_host_list, with_mirrors=True, mirroring_configuration='group')
 
 @given('a cluster is created with "{mirroring_configuration}" segment mirroring on "{master_host}" and "{segment_host_list}"')
 def impl(context, mirroring_configuration, master_host, segment_host_list):
