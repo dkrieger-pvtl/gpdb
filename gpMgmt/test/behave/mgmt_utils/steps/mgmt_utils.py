@@ -2016,7 +2016,7 @@ def impl(context, working_directory):
     shutil.rmtree(context.working_directory, ignore_errors=True)
     os.mkdir(context.working_directory)
 
-def _create_cluster(context, master_host, segment_host_list, with_mirrors=False):
+def _create_cluster(context, master_host, segment_host_list, with_mirrors=False, mirror_configuration='group'):
     if segment_host_list == "":
         segment_host_list = []
     else:
@@ -2049,7 +2049,11 @@ def impl(context, master_host, segment_host_list):
 
 @given('a cluster is created with mirrors on "{master_host}" and "{segment_host_list}"')
 def impl(context, master_host, segment_host_list):
-    _create_cluster(context, master_host, segment_host_list, with_mirrors=True)
+    _create_cluster(context, master_host, segment_host_list, with_mirrors=True, mirror_configuration='group')
+
+@given('a cluster is created with "{mirroring_configuration}" segment mirroring on "{master_host}" and "{segment_host_list}"')
+def impl(context, mirroring_configuration, master_host, segment_host_list):
+    _create_cluster(context, master_host, segment_host_list, with_mirrors=True, mirroring_configuration=mirroring_configuration)
 
 @given('the user runs gpexpand interview to add {num_of_segments} new segment and {num_of_hosts} new host "{hostnames}"')
 @when('the user runs gpexpand interview to add {num_of_segments} new segment and {num_of_hosts} new host "{hostnames}"')

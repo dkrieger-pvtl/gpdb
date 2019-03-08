@@ -26,7 +26,7 @@ Feature: Tests for gpmovemirrors
     Scenario: gpmovemirrors can change from spread mirroring to group mirroring
         Given a working directory of the test as '/tmp/gpmovemirrors'
         And the database is killed on hosts "mdw,sdw1,sdw2,sdw3"
-        And a cluster is created with mirrors on "mdw" and "sdw1, sdw2, sdw3"
+        And a cluster is created with "spread" segment mirroring on "mdw" and "sdw1, sdw2, sdw3"
         And a sample gpmovemirrors input file is created in "group" configuration
         And the user runs "gpmovemirrors --input=/tmp/gpmovemirrors_input_group"
         Then gpmovemirrors should return a return code of 0
