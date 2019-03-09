@@ -211,15 +211,66 @@ def impl(context, mirror_config):
     # The format for a line in the gpmovemirrors input file is
     #   <old_address>:<port>:<datadir> <new_address>:<port>:<datadir>
     # Port numbers and addresses are hardcded to TestCluster values, assuming a 3-host 2-segment cluster.
-    input_filename = "/tmp/gpmovemirrors_input_%s" % mirror_config
-    line_template = "%s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d %s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d_moved\n"
-    # Group mirroring (TestCluster default): sdw1 mirrors to sdw2, sdw2 mirrors to sdw3, sdw3 mirrors to sdw2
-    group_port_map = {0: 21500, 1: 21501, 2: 21500, 3: 21501, 4: 21500, 5: 21501}
-    group_address_map = {0: "sdw2", 1: "sdw2", 2: "sdw3", 3: "sdw3", 4: "sdw1", 5: "sdw1"}
-    # Spread mirroring: each host mirrors one primary to each of the other two hosts
-    spread_port_map = {0: 21500, 1: 21500, 2: 21500, 3: 21501, 4: 21501, 5: 21501}
-    spread_address_map = {0: "sdw2", 1: "sdw3", 2: "sdw1", 3: "sdw3", 4: "sdw1", 5: "sdw2"}
+    # input_filename = "/tmp/gpmovemirrors_input_%s" % mirror_config
+    # line_template = "%s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d %s:%d:/tmp/gpmovemirrors/data/mirror/gpseg%d_moved\n"
+    # # Group mirroring (TestCluster default): sdw1 mirrors to sdw2, sdw2 mirrors to sdw3, sdw3 mirrors to sdw2
+    # group_port_map = {0: 21500, 1: 21501, 2: 21500, 3: 21501, 4: 21500, 5: 21501}
+    # group_address_map = {0: "sdw2", 1: "sdw2", 2: "sdw3", 3: "sdw3", 4: "sdw1", 5: "sdw1"}
+    # # Spread mirroring: each host mirrors one primary to each of the other two hosts
+    # spread_port_map = {0: 21500, 1: 21500, 2: 21500, 3: 21501, 4: 21501, 5: 21501}
+    # spread_address_map = {0: "sdw2", 1: "sdw3", 2: "sdw1", 3: "sdw3", 4: "sdw1", 5: "sdw2"}
     # The mirrors for contents 0 and 3 are excluded from the above maps because they are the same in either configuration
+
+    gparray = GpArray.initFromCatalog(dbconn.DbURL())
+
+    primary_to_mirror_host_map = {}
+    primary_content_map = {}
+    # Create a map from each host to the hosts holding the mirrors of all the
+    # primaries on the original host, e.g. the primaries for contents 0 and 1
+    # are on sdw1, the mirror for content 0 is on sdw2, and the mirror for
+    # content 1 is on sdw4, then primary_content_map[sdw1] = [sdw2, sdw4]
+
+
+#todo use something like the below to create configurations that move between group and spread mirroring configurations
+#hosts = list(set(gparray.getHostList()) - set('mdw'))
+#if (mirror_config == "group"):  #if not already there, move mirror to primary_host%numcontentIDs
+#        for segmentPair in gparray.segmentPairs:
+#            primary, mirror = segmentPair
+#            desiredHost = (priamry.host+1) % hosts.len()
+#            if (mirror.host != desiredHost):
+#                print("movemirror mirror.host desiredhost")
+#else: #"spread"
+#    for host in hosts:
+#        primaryHost = ''
+#        mirrorsOnHost = []
+#        for segmentPair in host.segmentPairs:
+#            primary, mirror = segmentPair
+#            primaryHost = primary.host
+#            mirrorsOnHost.append(mirror)
+#        cnt = 0
+#        if (mirrorsOnHost.len() >= hosts.len()):
+#            print("ERROR")
+#        for mirror in mirrorsOnHost:
+#            desiredHost = (primaryHost+1+num)%hosts.len()
+#            num=num+1
+#            if (desiredHost != mirror.host):
+#                print("movemirror mirror.host desiredHost")
+
+
+#if mirror_config == "spread":
+#    for segmentPair in gparray.segmentPairs:
+#        primary_host, mirror_host = segmentPair.get_hosts()
+#        pair_content = segmentPair.primaryDB.content
+
+#        # Regardless of mirror configuration, a primary should never be mirrored on the same host
+#        if primary_host == mirror_host:
+#            raise Exception('Host %s has both primary and mirror for content %d' % (primary_host, pair_content))
+
+#        primary_content_map[primary_host] = pair_content
+#        if primary_host not in primary_to_mirror_host_map:
+#            primary_to_mirror_host_map[primary_host] = set()
+
+
     with open(input_filename, "w") as fd:
         for content in [1,2,4,5]:
             if mirror_config == "spread":
