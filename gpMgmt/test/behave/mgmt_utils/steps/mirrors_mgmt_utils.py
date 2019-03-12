@@ -1,6 +1,32 @@
+from os import path
+
 from behave import given, when, then
 
 from test.behave_utils.utils import *
+
+
+class _MirrorMgmtContext:
+    def __init__(self):
+        self.reset()
+    def reset(self):
+        self.working_directory = ''
+        self.input_file = ''
+        self.has_set_working_directory = False
+        self.has_set_input_file = False
+    def set_working_directory(self, working_directory):
+        self.has_set_working_directory = True
+        self.working_directory = working_directory
+    def set_input_file(self, input_file):
+        self.has_set_input_file = True
+        self.input_file = input_file
+    def get_working_directory(self):
+        return self.working_directory
+    def get_input_file_fullpath(self):
+        if not self.has_set_working_directory or not self.has_set_input_file:
+            raise Exception("either working directory or input file not set")
+        return path.normpath(path.join(self.working_directory,self.input_file))
+
+_mirrorContext = _MirrorMgmtContext()
 
 # This file contains steps for gpaddmirrors and gpmovemirrors tests
 
@@ -97,6 +123,9 @@ def impl(context):
 def impl(context):
     add_mirrors(context)
 
+@given('the gpmovemirrors context is reset')
+def impl(context):
+    _mirrorContext.reset()
 
 @given('gpaddmirrors adds mirrors with temporary data dir')
 def impl(context):
@@ -203,6 +232,46 @@ def impl(context, mirror_config):
             if num_mirror_hosts != 1:
                 raise Exception('Expected primaries on %s to all be mirrored to the same host, but they are mirrored to %d different hosts' %
                         (primary_host, num_mirror_hosts))
+
+@given('the working directory is set to that test working directory')
+def impl(context):
+    _mirrorContext.set_working_directory(context.working_directory)
+
+@given("a '{file_type}' gpmovemirrors file is created in that working directory")
+def impl(context, file_type):
+    if file_type == 'malformed':
+        filename='gpmirrors_malformed.txt'
+        inputString = 'I really like coffee.'
+    elif file_type == 'badhost':
+        filename='gpmirrors_badhost.txt'
+        inputString='Davids-MacBook-Pro.local:25435:/Users/dkrieger/workspace/gpdb/gpAux/gpdemo/datadirs/dbfast_mirror1/demoDataDir0 \
+                     xxyyzzfoofoo:25435:' + _mirrorContext.get_working_directory()
+    elif file_type == 'good':
+        filename='gpmirrors_good.txt'
+        inputString='Davids-MacBook-Pro.local:25435:/Users/dkrieger/workspace/gpdb/gpAux/gpdemo/datadirs/dbfast_mirror1/demoDataDir0 Davids-MacBook-Pro.local:25435:' + _mirrorContext.get_working_directory()
+    else:
+        raise Exception('unknown file_type')
+
+    _mirrorContext.set_input_file(filename)
+    with open(_mirrorContext.get_input_file_fullpath(), 'w') as fd:
+        fd.write(inputString)
+
+@given('the user runs gpmovemirrors with the setup context')
+def impl(context):
+    cmd = "gpmovemirrors --input=" + _mirrorContext.get_input_file_fullpath()
+    run_gpcommand(context,cmd)
+
+@then('verify that mirrors are recognized after a restart')
+def impl(context):
+    context.execute_steps( u'''
+    When an FTS probe is triggered
+    And the user runs "gpstop -a"
+    And wait until the process "gpstop" goes down
+    And the user runs "gpstart -a"
+    And wait until the process "gpstart" goes down
+    Then all the segments are running
+    And the segments are synchronized''')
+
 
 @given('a sample gpmovemirrors input file is created in "{mirror_config}" configuration')
 def impl(context, mirror_config):

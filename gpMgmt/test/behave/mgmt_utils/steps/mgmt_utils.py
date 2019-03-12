@@ -312,7 +312,6 @@ def impl(context, env_var):
 
     del context.orig_env[env_var]
 
-
 @given('the user runs "{command}"')
 @when('the user runs "{command}"')
 @then('the user runs "{command}"')
@@ -2009,12 +2008,23 @@ def step_impl(context, abbreviated_timezone):
     if context.startup_timezone != abbreviated_timezone:
         raise Exception("Expected timezone in startup.log to be %s, but it was %s" % (abbreviated_timezone, context.startup_timezone))
 
+@given("a working directory of the test as '{working_directory}' with mode '{mode}'")
+def impl(context, working_directory, mode):
+    _create_working_directory(context, working_directory, mode)
+
 @given("a working directory of the test as '{working_directory}'")
 def impl(context, working_directory):
+    _create_working_directory(context, working_directory)
+
+def _create_working_directory(context, working_directory, mode=''):
     context.working_directory = working_directory
     # Don't fail if directory already exists, which can occur for the first scenario
     shutil.rmtree(context.working_directory, ignore_errors=True)
-    os.mkdir(context.working_directory)
+    if (mode != ''):
+        os.mkdir(context.working_directory, int(mode,8))
+    else:
+        os.mkdir(context.working_directory)
+
 
 def _create_cluster(context, master_host, segment_host_list, with_mirrors=False, mirroring_configuration='group'):
     if segment_host_list == "":
