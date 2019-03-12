@@ -30,6 +30,11 @@ _mirrorContext = _MirrorMgmtContext()
 
 # This file contains steps for gpaddmirrors and gpmovemirrors tests
 
+def _get_first_mirror_segment():
+    gparray = GpArray.initFromCatalog(dbconn.DbURL())
+    segments = gparray.getSegmentList()
+    return segments[0].mirrorDB
+
 def _get_mirror_count():
     with dbconn.connect(dbconn.DbURL(dbname='template1')) as conn:
         sql = """SELECT count(*) FROM gp_segment_configuration WHERE role='m'"""
@@ -239,22 +244,29 @@ def impl(context):
 
 @given("a '{file_type}' gpmovemirrors file is created in that working directory")
 def impl(context, file_type):
+    first_mirror = _get_first_mirror_segment()
+    original_hostname = first_mirror.getSegmentHostName()
+    original_port = first_mirror.getSegmentPort()
+    original_directory = first_mirror.getSegmentDataDirectory()
+    existing_mirror_config = '%s:%s:%s' % (original_hostname, original_port, original_directory)
+
     if file_type == 'malformed':
-        filename='gpmirrors_malformed.txt'
-        inputString = 'I really like coffee.'
+        filename = 'gpmirrors_malformed.txt'
+        input_string = 'I really like coffee.'
     elif file_type == 'badhost':
-        filename='gpmirrors_badhost.txt'
-        inputString='Davids-MacBook-Pro.local:25435:/Users/dkrieger/workspace/gpdb/gpAux/gpdemo/datadirs/dbfast_mirror1/demoDataDir0 \
-                     xxyyzzfoofoo:25435:' + _mirrorContext.get_working_directory()
+        filename = 'gpmirrors_badhost.txt'
+        mirror_config_with_bad_host = '%s:%s:%s' % ('xxyyzzfoofoo', original_port, _mirrorContext.get_working_directory())
+        input_string = '%s %s' % (existing_mirror_config, mirror_config_with_bad_host)
     elif file_type == 'good':
-        filename='gpmirrors_good.txt'
-        inputString='Davids-MacBook-Pro.local:25435:/Users/dkrieger/workspace/gpdb/gpAux/gpdemo/datadirs/dbfast_mirror1/demoDataDir0 Davids-MacBook-Pro.local:25435:' + _mirrorContext.get_working_directory()
+        filename = 'gpmirrors_good.txt'
+        good_mirror_config_with_different_directory = '%s:%s:%s' % (original_hostname, original_port, _mirrorContext.get_working_directory())
+        input_string = '%s %s' % (existing_mirror_config, good_mirror_config_with_different_directory)
     else:
         raise Exception('unknown file_type')
 
     _mirrorContext.set_input_file(filename)
     with open(_mirrorContext.get_input_file_fullpath(), 'w') as fd:
-        fd.write(inputString)
+        fd.write(input_string)
 
 @given('the user runs gpmovemirrors with the setup context')
 def impl(context):
