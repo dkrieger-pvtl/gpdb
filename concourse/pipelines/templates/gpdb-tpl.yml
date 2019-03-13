@@ -91,9 +91,10 @@ groups:
   - [[ test_name ]]
 {% endfor %}
   - gpaddmirrors
-  - gpexpand
+#  - gpexpand
   - gpcheck
   - gpmovemirrors
+  - gpmovemirrors_single_host
   - gppkg
   - check_centos
 {% endif %}
@@ -253,9 +254,10 @@ groups:
   - [[ test_name ]]
 {% endfor %}
   - gpaddmirrors
-  - gpexpand
+#  - gpexpand
   - gpcheck
   - gpmovemirrors
+  - gpmovemirrors_single_host
   - gppkg
   - check_centos
   - compile_gpdb_centos6
@@ -1882,6 +1884,45 @@ jobs:
   ensure:
     <<: *set_failed
 
+- name: gpmovemirrors_single_host
+  plan:
+    - aggregate:
+        - get: gpdb_src
+          params:
+            submodules:
+              - gpMgmt/bin/pythonSrc/ext
+          passed: [gate_cli_start]
+        - get: gpdb_binary
+          resource: bin_gpdb_centos6
+          passed: [gate_cli_start]
+          trigger: [[ test_trigger ]]
+        - get: ccp_src
+        - get: ccp-image
+    - put: terraform
+      params:
+        <<: *ccp_default_params
+        vars:
+          <<: *ccp_default_vars
+          number_of_nodes: 4
+    - task: gen_cluster
+      file: ccp_src/ci/tasks/gen_cluster.yml
+      params:
+        <<: *ccp_gen_cluster_default_params
+#    - task: gpinitsystem
+#      file: ccp_src/ci/tasks/gpinitsystem.yml
+    - task: create_demo_cluster
+      file: gpdb_src/concourse/tasks/create_demo_cluster.yml
+      image: ccp-image
+    - task: run_tests
+      file: gpdb_src/concourse/tasks/run_behave_single_host.yml
+      image: ccp-image
+      params:
+        BEHAVE_FLAGS: --tags=gpmovemirrors_single_host
+      on_success:
+        <<: *ccp_destroy
+  ensure:
+    <<: *set_failed
+
 {% if "centos6" in os_types and "ICW" in test_sections %}
 - name: pg_upgrade
   ensure:
@@ -2173,6 +2214,7 @@ jobs:
       - gpexpand
       - gpcheck
       - gpmovemirrors
+      - gpmovemirrors_single_host
       - gppkg
       - check_centos
       - interconnect

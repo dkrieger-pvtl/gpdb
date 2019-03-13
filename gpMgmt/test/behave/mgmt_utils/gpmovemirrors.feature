@@ -6,42 +6,7 @@ Feature: Tests for gpmovemirrors
     # figure out how to run on concourse too
     # maybe run on demo cluster on concourse too
     # factor the code to aggregate common parts
-
-    @newtestme1
-    Scenario: gpmovemirrors fails with totally malformed input file
-        Given the gpmovemirrors context is reset
-        And a standard local demo cluster is running
-        And a working directory of the test as '/tmp/gpmovemirrors' with mode '0700'
-        And the working directory is set to that test working directory
-        And a 'malformed' gpmovemirrors file is created in that working directory
-        And the user runs gpmovemirrors with the setup context
-        Then gpmovemirrors should return a return code of 3
-
-    @newtestme1
-    Scenario: gpmovemirrors fails with bad host in input file
-        Given the gpmovemirrors context is reset
-        And a standard local demo cluster is running
-        And a working directory of the test as '/tmp/gpmovemirrors' with mode '0700'
-        And the working directory is set to that test working directory
-        And a 'badhost' gpmovemirrors file is created in that working directory
-        And the user runs gpmovemirrors with the setup context
-        Then gpmovemirrors should return a return code of 3
-
-    @newtestme1
-    Scenario: gpmovemirrors can change the location of mirrors within a single host
-        Given the gpmovemirrors context is reset
-        And a standard local demo cluster is created
-        And a working directory of the test as '/tmp/gpmovemirrors' with mode '0700'
-        And the working directory is set to that test working directory
-        And a 'good' gpmovemirrors file is created in that working directory
-        And the user runs gpmovemirrors with the setup context
-        Then gpmovemirrors should return a return code of 0
-        And verify the database has mirrors
-        And all the segments are running
-        And the segments are synchronized
-        And save the gparray to context
-        And verify that mirrors are recognized after a restart
-
+    
     #Scenario: gpmovemirrors can change the location of mirrors within a single host with multiple tablespaces
     #    Given a working directory of the test as '/tmp/gpmovemirrors'
     #    And an empty demo cluster is running with data directory '/tmp/gpmovemirrors/democluster'
