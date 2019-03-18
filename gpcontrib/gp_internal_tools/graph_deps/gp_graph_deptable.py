@@ -31,6 +31,7 @@
 # TODO: the combining of subgraphs of AandB,BnotA, and AnotB below is not quite right...need to fix...use as an example
 #    ./gp_graph_deptable.py data/input/deps.txt data/input/deps_add_default_split.txt
 # TODO: generalize the input
+# TODO: add diff of graphs to unit test....
 #
 # dependencies:
 #   1). install graphviz on your machine  ('brew install graphviz')
@@ -60,9 +61,10 @@
 # r_1_prt_r1_r_key_r_name_key | u         | r_r_key_r_name_key          | u            | pg_constraint |        0 | pg_constraint |           0 | I
 # r_1_prt_r2_r_key_r_name_key | u         | r_r_key_r_name_key          | u            | pg_constraint |        0 | pg_constraint |           0 | I
 
-#
 
 from __future__ import print_function
+import argparse
+from os import path
 from graphviz import Digraph
 import pydot
 import sys
@@ -84,25 +86,12 @@ import sys
 #
 #   dot.render('test-output/round-table.gv', view=True)
 
-# parse the input args
-infile1 = ""
-infile2 = ""
-if len(sys.argv) < 2:
-    sys.exit("Usage: gp_graph_deptable.py infile1.txt [infile2.txt]")
-elif len(sys.argv) == 2:
-    infile1 = sys.argv[1]
-elif len(sys.argv) == 3:
-    infile1 = sys.argv[1]
-    infile2 = sys.argv[2]
-else:
-    sys.exit("Usage: gp_graph_deptable.py infile1.txt [infile2.txt]")
-
 # using pydot, parse the graphviz dot format for the two graphs(lhs/rhs) and return the (node,edge)
 #  from various set operations between the two
 class SetDifferenceTwoDigraphs:
     def __init__(self, lhs, rhs):
-        self.lhs = dot1
-        self.rhs = dot2
+        self.lhs = origDot
+        self.rhs = newDot
         (lhsPydotGraph,) = pydot.graph_from_dot_data(lhs.source)
         (rhsPydotGraph,) = pydot.graph_from_dot_data(rhs.source)
         self.lhsPydotEdges = lhsPydotGraph.get_edges()
@@ -126,14 +115,110 @@ class SetDifferenceTwoDigraphs:
         for node in self.rhsPydotNodes:
             self.rhsNodeSet.add(node)
 
+        # for edge in self.lhsEdgeSet:
+        #     print("E:" + str(edge) + "\nS:\n" + edge.get_source() + "\nD:\n" + edge.get_destination() +  "\nA:\n" + str(edge.get_attributes()))
+        #
+        # for node in self.lhsNodeSet:
+        #     print("N:" + str(node) + "\nN:\n" + node.get_name() + "\nA:\n", node.get_attributes())
+
     def AorB(self):
-        return (self.lhsNodeSet.union(self.rhsNodeSet), self.lhsEdgeSet.union(self.rhsEdgeSet))
+        nodes = set([])
+        edges = set([])
+        for node in self.lhsNodeSet:
+            nodes.add(node)
+        for node in self.rhsNodeSet:
+            nodes.add(node)
+        for edge in self.lhsEdgeSet:
+            edges.add(edge)
+        for edge in self.rhsEdgeSet:
+            edges.add(edge)
+
+        return self.lhsNodeSet.union(self.rhsNodeSet), self.lhsEdgeSet.union(self.rhsEdgeSet)
+
     def AandB(self):
-        return (self.lhsNodeSet, self.lhsEdgeSet.intersection(self.rhsEdgeSet))
+        nodes = set([])
+        edges = set([])
+        for lhsNode in self.lhsNodeSet:
+            lhsSource = lhsNode.get_name()
+            lhsAttributes = lhsNode.get_attributes()
+            for rhsNode in self.rhsNodeSet:
+                rhsSource = rhsNode.get_name()
+                rhsAttributes = rhsNode.get_attributes()
+                if lhsSource == rhsSource:
+                    nodes.add(lhsNode)
+                    for attr in lhsAttributes:
+                        if attr not in rhsAttributes:
+                            print("warning: node: " + lhsSource + " has attribute " + attr + " in one graph and not other...ignoring")
+                        elif lhsAttributes[attr] != rhsAttributes[attr]:
+                            print("warning: node: " + lhsSource + " has attribute " + lhsAttributes[attr] + " but other side has " + rhsAttributes[attr])
+                    break
+        for lhsEdge in self.lhsEdgeSet:
+            lhsSource = lhsEdge.get_source()
+            lhsDestination = lhsEdge.get_destination()
+            lhsAttributes = lhsEdge.get_attributes()
+            for rhsEdge in self.rhsEdgeSet:
+                rhsSource = rhsEdge.get_source()
+                rhsDestination = rhsEdge.get_destination()
+                rhsAttributes = rhsEdge.get_attributes()
+                if (lhsSource == rhsSource) and (lhsDestination == rhsDestination):
+                    edges.add(lhsEdge)
+                    # for attr in lhsAttributes:
+                    #     if attr not in rhsAttributes:
+                    #         print("warning: edge (" + lhsSource + "," + lhsDestination + ") has attribute " + attr + " in one graph and not other...ignoring")
+                    #     elif lhsAttributes[attr] != rhsAttributes[attr]:
+                    #         print("warning: node: " + lhsSource + " has attribute " + lhsAttributes[attr] + " but other side has " + rhsAttributes[attr])
+                    break
+        return nodes, edges
+
+    @staticmethod
+    def setDifference(lhsNodeSet, lhsEdgeSet, rhsNodeSet, rhsEdgeSet):
+        nodes = set([])
+        edges = set([])
+        for lhsNode in lhsNodeSet:
+            lhsSource = lhsNode.get_name()
+            lhsAttributes = lhsNode.get_attributes()
+            shouldAdd = True
+            for rhsNode in rhsNodeSet:
+                rhsSource = rhsNode.get_name()
+                rhsAttributes = rhsNode.get_attributes()
+                if lhsSource == rhsSource:
+                    shouldAdd = False
+                    break
+            if shouldAdd:
+                nodes.add(lhsNode)
+                # for attr in lhsAttributes:
+                # if attr not in rhsAttributes:
+                #     print("warning: node: " + lhsSource + " has attribute " + attr + " in one graph and not other...ignoring")
+                # elif lhsAttributes[attr] != rhsAttributes[attr]:
+                #     print("warning: node: " + lhsSource + " has attribute " + lhsAttributes[attr] + " but other side has " + rhsAttributes[attr])
+
+        for lhsEdge in lhsEdgeSet:
+            lhsSource = lhsEdge.get_source()
+            lhsDestination = lhsEdge.get_destination()
+            lhsAttributes = lhsEdge.get_attributes()
+            shouldAdd = True
+            for rhsEdge in rhsEdgeSet:
+                rhsSource = rhsEdge.get_source()
+                rhsDestination = rhsEdge.get_destination()
+                rhsAttributes = rhsEdge.get_attributes()
+                if (lhsSource == rhsSource) and (lhsDestination == rhsDestination):
+                    shouldAdd = False
+                    break
+            if shouldAdd:
+                edges.add(lhsEdge)
+                #for attr in lhsAttributes:
+                    # if attr not in rhsAttributes:
+                    #     print("warning: edge (" + lhsSource + "," + lhsDestination + ") has attribute " + attr + " in one graph and not other...ignoring")
+                    # elif lhsAttributes[attr] != rhsAttributes[attr]:
+                    #     print("warning: node: " + lhsSource + " has attribute " + lhsAttributes[attr] + " but other side has " + rhsAttributes[attr])
+
+        return nodes, edges
+
     def AnotB(self):
-        return (self.lhsNodeSet - self.rhsNodeSet, self.lhsEdgeSet - self.rhsEdgeSet)
+        return SetDifferenceTwoDigraphs.setDifference(self.lhsNodeSet, self.lhsEdgeSet, self.rhsNodeSet, self.rhsEdgeSet)
     def BnotA(self):
-        return (self.rhsNodeSet - self.lhsNodeSet, self.rhsEdgeSet - self.lhsEdgeSet)
+        return SetDifferenceTwoDigraphs.setDifference(self.rhsNodeSet, self.rhsEdgeSet, self.lhsNodeSet, self.lhsEdgeSet)
+
 
 # from the given pydot file, construct a dot graph from it.  See above
 def MakeDigraphFromPydot(graphName, nodesAndEdges, fillColor='white'):
@@ -187,51 +272,70 @@ def MakeDigraphFromFile(fileName):
     return (dot)
 
 def getNodeShape(type):
-    if (type == 'i'):
+    if type == 'i':
         return 'rarrow'
-    elif (type == 'r'):
+    elif type == 'r':
         return 'rectangle'
-    elif (type == 'u'):
+    elif type == 'u':
         return 'ellipse'
     else:
         return 'star'
 
 def getNodeOutlineColor(type):
-    if (type == 'i'):
+    if type == 'i':
         return 'green'
-    elif (type == 'r'):
+    elif type == 'r':
         return 'black'
-    elif (type == 'u'):
+    elif type == 'u':
         return 'orange'
     else:
         return 'orange'
 
 def getEdgeColor(type):
-    if (type == 'i'):
+    if type == 'i':
         return 'green'
-    elif (type == 'I'):
+    elif type == 'I':
         return 'orange'
-    elif (type == 'a'):
+    elif type == 'a':
         return 'black'
     else:
-        return 'red'    
+        return 'red'
+
+def setupArguments(options):
+    argsp = argparse.ArgumentParser(description="postgresQL dependency table parsing description")
+    argsp.add_argument('-o', '--origFile', type=str, nargs=1, required=True, help='first(perhaps only) graph to render')
+    argsp.add_argument('-n', '--newFile', type=str, nargs=1, required=False, help='second graph to render; will show deltas from first graph')
+    argsp.add_argument('-d', '--outputDir', type=str, nargs=1, required=False, help='output directory to save graphviz and pdf files')
+
+    ns = argsp.parse_args(options)
+    print("ARGUMENTS:" + str(ns))
+    return ns
+
+
+config = setupArguments(sys.argv[1:])
+
+# parse the input args
+origFile = config.origFile[0]
+newFile = config.newFile[0] if config.newFile else None
+outputDir = config.outputDir[0] if config.outputDir else ''
 
 # FIRST GRAPH
-(dot1) = MakeDigraphFromFile(infile1)
-s1 = dot1.source
-print("S1: " + s1)
-dot1.render(infile1 + '.gv', view=True)
+(origDot) = MakeDigraphFromFile(origFile)
+origSource = origDot.source
+print("origSource: " + origSource)
+origDot.render(path.normpath(path.join(outputDir, path.basename(origFile) + '.gv')), view=True)
+
 
 # SECOND GRAPH
-if (infile2 == ""):
+if not newFile:
     print("Only one infile given...no diff needed")
     sys.exit(0)
 
-(dot2) = MakeDigraphFromFile(infile2)
-print(dot2.source)
-dot2.render(infile2 + '.gv', view=True)
+(newDot) = MakeDigraphFromFile(newFile)
+print(newDot.source)
+newDot.render(path.normpath(path.join(outputDir, path.basename(newFile) + '.gv')), view=True)
 
-deltaGraph = SetDifferenceTwoDigraphs(dot1,dot2)
+deltaGraph = SetDifferenceTwoDigraphs(origDot, newDot)
 
 dotAandB = MakeDigraphFromPydot('AandB', deltaGraph.AandB())
 dotAandB.render('AandB' + '.gv', view=True)
@@ -246,4 +350,4 @@ dotAll = Digraph(comment='all')
 dotAll.subgraph(dotAandB)
 dotAll.subgraph(dotBnotA)
 dotAll.subgraph(dotAnotB)
-dotAll.render('all' + '.gv', view=True)
+dotAll.render(path.normpath(path.join(outputDir, path.basename(origFile) + "_diff_" + path.basename(newFile) + '.gv')), view=True)
