@@ -1,15 +1,22 @@
 import os
 import shutil
 
-from test.behave_utils.utils import drop_database_if_exists, start_database_if_not_started,\
-                                            create_database, \
-                                            run_command, check_user_permissions, run_gpcommand
-from steps.mirrors_mgmt_utils import MirrorMgmtContext
 from gppylib.db import dbconn
 
+from test.behave_utils.utils import drop_database_if_exists, start_database_if_not_started, \
+    create_database, \
+    run_command, check_user_permissions
+
+from steps.mgmt_utils import create_local_demo_cluster
+from steps.mirrors_mgmt_utils import MirrorMgmtContext
+
+last_scenario_status="not_passed"
 
 def before_feature(context, feature):
     # we should be able to run gpexpand without having a cluster initialized
+    context.last_scenario_status="not_passed"
+
+
     tags_to_skip = ['gpexpand', 'gpaddmirrors', 'gpstate', 'gpmovemirrors']
     if set(context.feature.tags).intersection(tags_to_skip):
         return
@@ -63,19 +70,26 @@ def after_feature(context, feature):
 
 
 def before_scenario(context, scenario):
+    global last_scenario_status
     if 'gpmovemirrors' in context.feature.tags:
         context.mirror_context = MirrorMgmtContext()
+
+    if ('demo_cluster' in context.scenario.tags) and (last_scenario_status == "not_passed"):
+        print ("creating a local demo cluster...\n")
+        create_local_demo_cluster(context,num_primaries=3)
 
     tags_to_skip = ['gpexpand', 'gpaddmirrors', 'gpstate', 'gpmovemirrors']
     if set(context.feature.tags).intersection(tags_to_skip):
         return
 
     if 'analyzedb' not in context.feature.tags:
-        start_database_if_not_started(context)
+        if 'gpmovemirrors' not in context.feature.tags:
+            start_database_if_not_started(context)
         drop_database_if_exists(context, 'testdb')
 
 
 def after_scenario(context, scenario):
+    global last_scenario_status
     tags_to_skip = ['gpexpand', 'gpaddmirrors', 'gpstate', 'gpinitstandby']
     if set(context.feature.tags).intersection(tags_to_skip):
         return
@@ -83,10 +97,19 @@ def after_scenario(context, scenario):
     if 'gpmovemirrors' in context.feature.tags:
         if 'temp_base_dir' in context:
             shutil.rmtree(context.temp_base_dir)
+        print("XXXXX: " + context.scenario.status)
+        if context.scenario.status=="passed":
+            last_scenario_status="passed"
+            context.last_scenario_status="passed"
+        else:
+            last_scenario_status="not_passed"
+            context.last_scenario_status="not_passed"
+        print("YYYY: " + context.last_scenario_status)
 
     if 'analyzedb' not in context.feature.tags:
         if 'gpmovemirrors' not in context.feature.tags:
             start_database_if_not_started(context)
+
 
         home_dir = os.path.expanduser('~')
         if not check_user_permissions(home_dir, 'write') and hasattr(context, 'orig_write_permission')\
