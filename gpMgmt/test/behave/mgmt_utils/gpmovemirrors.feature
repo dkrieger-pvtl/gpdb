@@ -37,7 +37,7 @@ Feature: Tests for gpmovemirrors
 
     @demo_cluster
     Scenario: gpmovemirrors can change the location of mirrors within a single host
-        Given a standard local demo cluster is created
+        Given a standard local demo cluster is running
         And a gpmovemirrors directory under '/tmp/gpmovemirrors' with mode '0700' is created
         And a 'good' gpmovemirrors file is created
         When the user runs gpmovemirrors

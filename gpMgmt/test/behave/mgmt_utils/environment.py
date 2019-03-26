@@ -85,7 +85,8 @@ def after_scenario(context, scenario):
             shutil.rmtree(context.temp_base_dir)
 
     if 'analyzedb' not in context.feature.tags:
-        start_database_if_not_started(context)
+        if 'gpmovemirrors' not in context.feature.tags:
+            start_database_if_not_started(context)
 
         home_dir = os.path.expanduser('~')
         if not check_user_permissions(home_dir, 'write') and hasattr(context, 'orig_write_permission')\
