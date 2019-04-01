@@ -3,11 +3,11 @@ Feature: expand the cluster by adding more segments
 
     @gpexpand_no_mirrors
     @gpexpand_timing
+    @gpexpand_pr_fix    
     Scenario: after resuming a duration interrupted redistribution, tables are restored
-        Given a working directory of the test as '/data/gpdata/gpexpand'
-        And the database is killed on hosts "mdw,sdw1"
+        Given the database is not running
+        And a working directory of the test as '/data/gpdata/gpexpand'
         And a temporary directory under "/data/gpdata/gpexpand/expandedData" to expand into
-        And the database is not running
         And a cluster is created with no mirrors on "mdw" and "sdw1"
         And the master pid has been saved
         And database "gptest" exists
@@ -28,11 +28,11 @@ Feature: expand the cluster by adding more segments
     @gpexpand_no_mirrors
     @gpexpand_timing
     @gpexpand_standby
+    @gpexpand_pr_fix
     Scenario: after a duration interrupted redistribution, state file on standby matches master
-        Given a working directory of the test as '/data/gpdata/gpexpand'
-        And the database is killed on hosts "mdw,sdw1"
+        Given the database is not running
+        And a working directory of the test as '/data/gpdata/gpexpand'
         And a temporary directory under "/data/gpdata/gpexpand/expandedData" to expand into
-        And the database is not running
         And a cluster is created with no mirrors on "mdw" and "sdw1"
         And the user runs gpinitstandby with options " "
         And database "gptest" exists
@@ -47,11 +47,11 @@ Feature: expand the cluster by adding more segments
 
     @gpexpand_no_mirrors
     @gpexpand_timing
+    @gpexpand_pr_fix
     Scenario: after resuming an end time interrupted redistribution, tables are restored
-        Given a working directory of the test as '/data/gpdata/gpexpand'
-        And the database is killed on hosts "mdw,sdw1"
+        Given the database is not running
+        And a working directory of the test as '/data/gpdata/gpexpand'
         And a temporary directory under "/data/gpdata/gpexpand/expandedData" to expand into
-        And the database is not running
         And a cluster is created with no mirrors on "mdw" and "sdw1"
         And database "gptest" exists
         And there are no gpexpand_inputfiles
