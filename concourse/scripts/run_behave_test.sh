@@ -1,5 +1,4 @@
 #!/bin/bash
-set -ex
 
 BEHAVE_FLAGS=$@
 
@@ -10,16 +9,8 @@ export PATH=$PATH:~/.local/bin
 
 # create virtualenv before sourcing greenplum_path since greenplum_path
 # modifies PYTHONHOME and PYTHONPATH
-#
-# XXX Patch up the vendored Python's RPATH so we can successfully run
-# virtualenv. If we instead set LD_LIBRARY_PATH (as greenplum_path.sh does), the
-# system Python and the vendored Python will collide and virtualenv will fail.
-# This step requires patchelf.
-patchelf \
-    --set-rpath /usr/local/greenplum-db-devel/ext/python/lib \
-    /usr/local/greenplum-db-devel/ext/python/bin/python
-
-virtualenv \
+LD_LIBRARY_PATH=/usr/local/greenplum-db-devel/ext/python/lib/ \
+    virtualenv \
     --python /usr/local/greenplum-db-devel/ext/python/bin/python /tmp/venv
 
 

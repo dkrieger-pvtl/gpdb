@@ -48,6 +48,10 @@ function gen_env(){
 			patchelf \
 				--set-rpath /usr/local/greenplum-db-devel/ext/python/lib \
 				/usr/local/greenplum-db-devel/ext/python/bin/python
+		# virtualenv 16.0 and greater does not support python2.6, which is
+		# used on centos6
+		pip install --user virtualenv~=15.0
+		export PATH=\$PATH:~/.local/bin
 
 			virtualenv \
 				--python /usr/local/greenplum-db-devel/ext/python/bin/python /tmp/venv
@@ -62,6 +66,14 @@ function gen_env(){
 			virtualenv \
 				--python /usr/local/greenplum-db-devel/ext/python/bin/python /tmp/venv
 		fi
+
+		# activate virtualenv after sourcing greenplum_path, so that virtualenv
+		# takes precedence
+		# create virtualenv before sourcing greenplum_path since greenplum_path
+		# modifies PYTHONHOME and PYTHONPATH
+		LD_LIBRARY_PATH=/usr/local/greenplum-db-devel/ext/python/lib/ \
+		    virtualenv \
+		    --python /usr/local/greenplum-db-devel/ext/python/bin/python /tmp/venv
 
 		# activate virtualenv after sourcing greenplum_path, so that virtualenv
 		# takes precedence
