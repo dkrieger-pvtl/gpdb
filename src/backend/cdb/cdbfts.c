@@ -103,17 +103,50 @@ void
 FtsNotifyProber(void)
 {
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	uint8 probeTick = ftsProbeInfo->probeTick;
+	int			new_started,
+				old_started;
+
+	SpinLockAcquire(&ftsProbeInfo->fts_lck);
+	old_started = ftsProbeInfo->fts_probe_started;
+	SpinLockRelease(&ftsProbeInfo->fts_lck);
 
 	/* signal fts-probe */
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);
 
-	/* sit and spin */
-	while (probeTick == ftsProbeInfo->probeTick)
+
+	/* Wait for a new fts probe to start. */
+	for (;;)
 	{
-		pg_usleep(50000);
+		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		new_started = ftsProbeInfo->fts_probe_started;
+		SpinLockRelease(&ftsProbeInfo->fts_lck);
+
+		if (new_started != old_started)
+			break;
+
 		CHECK_FOR_INTERRUPTS();
+		pg_usleep(50000);
 	}
+
+	/*
+	 * We are waiting for fts_probe_done >= new_started, in a modulo sense.
+	 * Wait until current probe in progress is completed
+	 */
+	for (;;)
+	{
+		int			new_done;
+
+		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		new_done = ftsProbeInfo->fts_probe_done;
+		SpinLockRelease(&ftsProbeInfo->fts_lck);
+
+		if (new_done - new_started >= 0)
+			break;
+
+		CHECK_FOR_INTERRUPTS();
+		pg_usleep(50000);
+	}
+
 }
 
 /*
