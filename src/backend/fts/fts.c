@@ -307,7 +307,13 @@ void FtsLoop()
 
 		CHECK_FOR_INTERRUPTS();
 
+		SIMPLE_FAULT_INJECTOR("fts_before_probe");
+
 		probe_start_time = time(NULL);
+
+		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		ftsProbeInfo->fts_probe_started++;
+		SpinLockRelease(&ftsProbeInfo->fts_lck);
 
 		/* Need a transaction to access the catalogs */
 		StartTransactionCommand();
@@ -376,8 +382,13 @@ void FtsLoop()
 		/* free current components info and free ip addr caches */	
 		cdbcomponent_destroyCdbComponents();
 
+		SIMPLE_FAULT_INJECTOR("fts_after_probe");
+
 		/* Notify any waiting backends about probe cycle completion. */
-		ftsProbeInfo->probeTick++;
+		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		ftsProbeInfo->fts_probe_done = ftsProbeInfo->fts_probe_started;
+		SpinLockRelease(&ftsProbeInfo->fts_lck);
+
 
 		/* check if we need to sleep before starting next iteration */
 		elapsed = time(NULL) - probe_start_time;

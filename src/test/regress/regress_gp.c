@@ -32,6 +32,7 @@
 #include "cdb/memquota.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdispatchresult.h"
+#include "cdb/cdbfts.h"
 #include "cdb/cdbgang.h"
 #include "cdb/cdbvars.h"
 #include "cdb/ml_ipc.h"
@@ -107,6 +108,8 @@ extern Datum gp_get_next_oid(PG_FUNCTION_ARGS);
 /* Broken output function, for testing */
 extern Datum broken_int4out(PG_FUNCTION_ARGS);
 
+/* fts tests */
+extern Datum gp_fts_probe_stats(PG_FUNCTION_ARGS);
 
 /* Triggers */
 
@@ -858,6 +861,49 @@ describe(PG_FUNCTION_ARGS)
 	TupleDescInitEntry(tupdesc, (AttrNumber) 3, "sessionnum", INT4OID, -1, 0);
 
 	PG_RETURN_POINTER(tupdesc);
+}
+
+PG_FUNCTION_INFO_V1(gp_fts_probe_stats);
+Datum
+gp_fts_probe_stats(PG_FUNCTION_ARGS)
+{
+	Assert(GpIdentity.dbid == MASTER_DBID);
+
+	TupleDesc	tupdesc;
+	int			fts_probe_started = 0,
+				fts_probe_done = 0;
+	uint8		fts_statusVersion = 0;
+
+	SpinLockAcquire(&ftsProbeInfo->fts_lck);
+	fts_probe_started = ftsProbeInfo->fts_probe_started;
+	fts_probe_done    = ftsProbeInfo->fts_probe_done;
+	fts_statusVersion = ftsProbeInfo->fts_statusVersion;
+	SpinLockRelease(&ftsProbeInfo->fts_lck);
+
+	/* Build a result tuple descriptor */
+	tupdesc = CreateTemplateTupleDesc(3, false);
+	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "probeStart", INT8OID, -1, 0);
+	TupleDescInitEntry(tupdesc, (AttrNumber) 2, "probeEnd", INT8OID, -1, 0);
+	TupleDescInitEntry(tupdesc, (AttrNumber) 3, "statusVersion", INT2OID, -1, 0);
+
+	tupdesc = BlessTupleDesc(tupdesc);
+
+	{
+		Datum values[3];
+		bool nulls[3];
+		HeapTuple tuple;
+		Datum result;
+		MemSet(values, 0, sizeof(values));
+		MemSet(nulls, false, sizeof(nulls));
+
+		values[0] = Int64GetDatum(fts_probe_started);
+		values[1] = Int64GetDatum(fts_probe_done);
+		values[2] = Int8GetDatum(fts_statusVersion);
+
+		tuple = heap_form_tuple(tupdesc, values, nulls);
+		result = HeapTupleGetDatum(tuple);
+		PG_RETURN_DATUM(result);
+	}
 }
 
 PG_FUNCTION_INFO_V1(project);

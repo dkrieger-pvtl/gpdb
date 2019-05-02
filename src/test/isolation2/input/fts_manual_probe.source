@@ -1,0 +1,64 @@
+-- See src/backend/fts/README for background information
+
+-- This test is for two scenarios:
+-- 1) Ensuring fresh results when a probe is requested while a scan is already
+-- in progress.
+
+-- 2) Ensuring that when multiple probe requests come in before the start of a
+-- new probe, then all those requests share the same result (ie: piggyback).
+
+
+include: helpers/server_helpers.sql;
+
+create extension if not exists gp_inject_fault;
+select gp_inject_fault('all', 'reset', 1);
+
+-- create extension only on master since the FTS process is only on master
+CREATE OR REPLACE FUNCTION gp_fts_probe_stats() RETURNS TABLE (
+  fts_probe_started int8,
+  fts_probe_done int8,
+  fts_statusVersion int2
+)
+AS '/@abs_builddir@/../regress/regress.so', 'gp_fts_probe_stats' LANGUAGE C EXECUTE ON MASTER READS SQL DATA;
+
+create temp table gp_fts_probe_stats_before(fts_probe_started_before int, fts_probe_done_before int);
+
+-- ensure the internal regular probes do not affect our test
+!\retcode gpconfig -c gp_fts_probe_interval -v 3600;
+!\retcode gpstop -u;
+
+select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
+select gp_inject_fault_infinite('fts_after_probe', 'suspend', 1);
+
+-- start three probe requests and suspend before incrementing the start tick
+-- they should all share the same results
+1&: select gp_request_fts_probe_scan();
+2&: select gp_request_fts_probe_scan();
+3&: select gp_request_fts_probe_scan();
+select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
+
+-- cache the initial probe stats
+insert into gp_fts_probe_stats_before (select fts_probe_started, fts_probe_done from gp_fts_probe_stats());
+
+select gp_inject_fault('fts_before_probe', 'resume', 1);
+select gp_wait_until_triggered_fault('fts_after_probe', 1, 1);
+
+-- request a fourth probe request during an in-progress probe scan
+-- this should not be lost and should return with fresh results
+4&: select gp_request_fts_probe_scan();
+
+select gp_inject_fault('fts_after_probe', 'resume', 1);
+1<:
+2<:
+3<:
+4<:
+
+-- calculate the number of probe scans requested
+select (after.fts_probe_started - before.fts_probe_started_before) started_delta,
+       (after.fts_probe_done - before.fts_probe_done_before) done_delta
+from gp_fts_probe_stats() as after,
+     gp_fts_probe_stats_before as before;
+
+-- reset the internal regular probe interval
+!\retcode gpconfig -r gp_fts_probe_interval;
+!\retcode gpstop -u;
