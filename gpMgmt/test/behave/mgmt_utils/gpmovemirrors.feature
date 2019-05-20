@@ -29,8 +29,8 @@ Feature: Tests for gpmovemirrors
         When the user runs gpmovemirrors
         Then gpmovemirrors should return a return code of 0
         And verify the database has mirrors
-        And all the segments are running
         And the segments are synchronized
+        And all the segments are running
         And verify that mirrors are recognized after a restart
 
     Scenario: gpmovemirrors can change the port of mirrors within a single host
@@ -40,8 +40,8 @@ Feature: Tests for gpmovemirrors
         When the user runs gpmovemirrors
         Then gpmovemirrors should return a return code of 0
         And verify the database has mirrors
-        And all the segments are running
         And the segments are synchronized
+        And all the segments are running
         And verify that mirrors are recognized after a restart
 
     Scenario: gpmovemirrors gives a warning when passed identical attributes for new and old mirrors
@@ -52,8 +52,8 @@ Feature: Tests for gpmovemirrors
         Then gpmovemirrors should return a return code of 0
 	And gpmovemirrors should print a "request to move a mirror with identical attributes" warning
 	And verify the database has mirrors
-        And all the segments are running
         And the segments are synchronized
+        And all the segments are running
         And verify that mirrors are recognized after a restart
 
     Scenario: tablespaces work
@@ -64,8 +64,8 @@ Feature: Tests for gpmovemirrors
          When the user runs gpmovemirrors
          Then gpmovemirrors should return a return code of 0
           And verify the database has mirrors
-          And all the segments are running
           And the segments are synchronized
+          And all the segments are running
           And verify that mirrors are recognized after a restart
           And the tablespace is valid
 
@@ -80,8 +80,8 @@ Feature: Tests for gpmovemirrors
         Then gpmovemirrors should return a return code of 0
         # Verify that mirrors are functional in the new configuration
         Then verify the database has mirrors
-        And all the segments are running
         And the segments are synchronized
+        And all the segments are running
         And verify that mirror segments are in "spread" configuration
         And verify that mirrors are recognized after a restart
 
@@ -93,8 +93,8 @@ Feature: Tests for gpmovemirrors
         Then gpmovemirrors should return a return code of 0
         # Verify that mirrors are functional in the new configuration
         Then verify the database has mirrors
-        And all the segments are running
         And the segments are synchronized
+        And all the segments are running
         And verify that mirror segments are in "group" configuration
         And verify that mirrors are recognized after a restart
 
@@ -106,8 +106,8 @@ Feature: Tests for gpmovemirrors
          When the user runs "gpmovemirrors --input=/tmp/gpmovemirrors_input_spread"
          Then gpmovemirrors should return a return code of 0
           And verify the database has mirrors
-          And all the segments are running
           And the segments are synchronized
+          And all the segments are running
           And verify that mirrors are recognized after a restart
           And the tablespace is valid
 
