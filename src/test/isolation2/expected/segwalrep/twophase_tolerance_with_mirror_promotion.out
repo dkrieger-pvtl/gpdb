@@ -208,7 +208,7 @@ DROP
  p    | m              
 (2 rows)
 
-5:!\retcode gprecoverseg -aF \-\-no-progress;
+5:!\retcode gprecoverseg -aF --no-progress;
 -- start_ignore
 -- end_ignore
 (exited with code 0)

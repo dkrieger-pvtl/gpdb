@@ -96,7 +96,7 @@
 -- are exhausted and PANICs the master.
 5:SELECT role, preferred_role FROM gp_segment_configuration WHERE content = 2;
 
-5:!\retcode gprecoverseg -aF \-\-no-progress;
+5:!\retcode gprecoverseg -aF --no-progress;
 
 5:!\retcode gprecoverseg -ar;
 
