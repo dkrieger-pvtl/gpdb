@@ -20,6 +20,9 @@ run:
         set -ex
         if which yum > /dev/null; then
             sudo yum install -y patchelf
+        elif which apt > /dev/null; then
+            sudo apt update
+            sudo apt install patchelf
         else
             set +x
             echo \"ERROR: install_python_hacks() does not support the current platform and should be modified\"
