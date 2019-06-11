@@ -64,9 +64,8 @@ def impl(context, seg):
     else:
         raise Exception("Got invalid segment type: %s" % seg)
 
-    datadir_grep = '[' + datadir[0] + ']' + datadir[1:]
-    cmdStr = "ps ux | grep %s | awk '{print $2}' | xargs kill" % datadir_grep
-    cmd = Command(name='get %s pid: %s' % (seg, cmdStr),
+    cmdStr = "pkill -f -o " + datadir
+    cmd = Command(name='get %s killCmd: %s' % (seg, cmdStr),
                   cmdStr=cmdStr,
                   ctxt=REMOTE,
                   remoteHost=seghost)
