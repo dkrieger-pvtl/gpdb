@@ -1522,7 +1522,6 @@ jobs:
           passed: [compile_gpdb_ubuntu18.04]
           trigger: [[ test_trigger ]]
         - get: ccp_src
-        - get: ccp-image
         - put: terraform
           params:
             <<: *ccp_default_params
@@ -1539,7 +1538,7 @@ jobs:
           file: ccp_src/ci/tasks/gpinitsystem.yml
         - task: [[ test.name ]]_concourse_cluster_tests
           file: gpdb_src/concourse/tasks/run_behave_on_ccp_cluster.yml
-          image: ccp-image
+          image: gpdb6-ubuntu18.04-test
           params:
             BEHAVE_FLAGS: --tags=[[ test.name ]] --tags=concourse_cluster
           on_success:
