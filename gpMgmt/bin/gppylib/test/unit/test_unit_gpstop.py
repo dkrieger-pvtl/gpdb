@@ -5,14 +5,47 @@ import sys
 import time
 import unittest
 
-from mock import Mock, call, patch
+from mock import MagicMock, Mock, call, patch, create_autospec, ANY
 
+from gppylib.db import dbconn
 from gppylib.gparray import Segment, GpArray, SegmentPair
 from gppylib.test.unit.gp_unittest import GpTestCase, run_tests
 from gppylib.commands import base
-from gppylib.commands.base import Command, WorkerPool
+from gppylib.commands.base import Command, ExecutionError, WorkerPool
 from gppylib.commands.gp import GpSegStopCmd
 from gppylib.mainUtils import ProgramArgumentValidationException
+
+
+class GpStopUnitTests(unittest.TestCase):
+    def setUp(self):
+        # because gpstop does not have a .py extension,
+        # we have to use imp to import it
+        # if we had a gpstop.py, this is equivalent to:
+        #   import gpstop
+        #   self.subject = gpstop
+        gpstop_file = os.path.abspath(os.path.dirname(__file__) + "/../../../gpstop")
+        self.subject = imp.load_source('gpstop', gpstop_file)
+        self.subject.logger = Mock(logging.Logger)
+
+
+
+    @patch('gppylib.userinput.ask_string')
+    @patch('gppylib.commands.gp.MasterStop')
+    @patch('gppylib.db.dbconn.connect')
+    def test_stop_master_handles_SIGINT_when_pg_ctl_is_waiting_to_shutdown(self, mock_connect, mock_cmd, mock_ask_string):
+        mock_connect.return_value = MagicMock()
+        mock_ask_string.return_value = 'f'
+
+        mock_cmd.return_value.run.side_effect = ExecutionError("i like dawgs", "bark bark")
+        mock_cmd.return_value.results.stderr = "poopies"
+
+        gpstop = self.subject.GpStop(self, "smart")
+        gpstop.mode = 'smart'
+        gpstop.gparray = MagicMock()
+
+        gpstop._stop_master()
+
+        mock_ask_string.assert_called_once_with(ANY, ANY, ANY, ANY)
 
 
 class GpStop(GpTestCase):
