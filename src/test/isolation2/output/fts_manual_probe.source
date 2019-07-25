@@ -50,11 +50,6 @@ select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
 --------------------------
  t                        
 (1 row)
-select gp_inject_fault_infinite('fts_after_probe', 'suspend', 1);
- gp_inject_fault_infinite 
---------------------------
- t                        
-(1 row)
 
 -- start three probe requests and suspend before incrementing the start tick
 -- they should all share the same results
@@ -71,6 +66,11 @@ select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
 insert into gp_fts_probe_stats_before (select fts_probe_started, fts_probe_done from gp_fts_probe_stats());
 INSERT 1
 
+select gp_inject_fault_infinite('fts_after_probe', 'suspend', 1);
+ gp_inject_fault_infinite 
+--------------------------
+ t                        
+(1 row)
 select gp_inject_fault('fts_before_probe', 'resume', 1);
  gp_inject_fault 
 -----------------
