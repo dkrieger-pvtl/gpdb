@@ -103,8 +103,8 @@ void
 FtsNotifyProber(void)
 {
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	int			new_started,
-				old_started;
+	int			new_started;
+	int			old_started;
 
 	SpinLockAcquire(&ftsProbeInfo->fts_lck);
 	old_started = ftsProbeInfo->fts_probe_started;
