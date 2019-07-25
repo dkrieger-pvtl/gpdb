@@ -106,9 +106,9 @@ FtsNotifyProber(void)
 	int			new_started;
 	int			old_started;
 
-	SpinLockAcquire(&ftsProbeInfo->fts_lck);
+	SpinLockAcquire(&ftsProbeInfo->fts_lock);
 	old_started = ftsProbeInfo->fts_probe_started;
-	SpinLockRelease(&ftsProbeInfo->fts_lck);
+	SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 	/* signal fts-probe */
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);
@@ -117,9 +117,9 @@ FtsNotifyProber(void)
 	/* Wait for a new fts probe to start. */
 	for (;;)
 	{
-		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		SpinLockAcquire(&ftsProbeInfo->fts_lock);
 		new_started = ftsProbeInfo->fts_probe_started;
-		SpinLockRelease(&ftsProbeInfo->fts_lck);
+		SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 		if (new_started != old_started)
 			break;
@@ -136,9 +136,9 @@ FtsNotifyProber(void)
 	{
 		int			new_done;
 
-		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		SpinLockAcquire(&ftsProbeInfo->fts_lock);
 		new_done = ftsProbeInfo->fts_probe_done;
-		SpinLockRelease(&ftsProbeInfo->fts_lck);
+		SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 		if (new_done - new_started >= 0)
 			break;
