@@ -307,7 +307,7 @@ void FtsLoop()
 
 		CHECK_FOR_INTERRUPTS();
 
-		SIMPLE_FAULT_INJECTOR("fts_before_probe");
+		SIMPLE_FAULT_INJECTOR("ftsLoop_before_probe");
 
 		probe_start_time = time(NULL);
 
@@ -382,7 +382,7 @@ void FtsLoop()
 		/* free current components info and free ip addr caches */	
 		cdbcomponent_destroyCdbComponents();
 
-		SIMPLE_FAULT_INJECTOR("fts_after_probe");
+		SIMPLE_FAULT_INJECTOR("ftsLoop_after_probe");
 
 		/* Notify any waiting backends about probe cycle completion. */
 		SpinLockAcquire(&ftsProbeInfo->fts_lock);
@@ -398,6 +398,8 @@ void FtsLoop()
 		rc = WaitLatch(&MyProc->procLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
 					   timeout * 1000L);
+
+		SIMPLE_FAULT_INJECTOR("ftsLoop_after_latch");
 
 		ResetLatch(&MyProc->procLatch);
 
