@@ -311,9 +311,9 @@ void FtsLoop()
 
 		probe_start_time = time(NULL);
 
-		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		SpinLockAcquire(&ftsProbeInfo->fts_lock);
 		ftsProbeInfo->fts_probe_started++;
-		SpinLockRelease(&ftsProbeInfo->fts_lck);
+		SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 		/* Need a transaction to access the catalogs */
 		StartTransactionCommand();
@@ -385,9 +385,9 @@ void FtsLoop()
 		SIMPLE_FAULT_INJECTOR("fts_after_probe");
 
 		/* Notify any waiting backends about probe cycle completion. */
-		SpinLockAcquire(&ftsProbeInfo->fts_lck);
+		SpinLockAcquire(&ftsProbeInfo->fts_lock);
 		ftsProbeInfo->fts_probe_done = ftsProbeInfo->fts_probe_started;
-		SpinLockRelease(&ftsProbeInfo->fts_lck);
+		SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 
 		/* check if we need to sleep before starting next iteration */

@@ -874,11 +874,11 @@ gp_fts_probe_stats(PG_FUNCTION_ARGS)
 				fts_probe_done = 0;
 	uint8		fts_statusVersion = 0;
 
-	SpinLockAcquire(&ftsProbeInfo->fts_lck);
+	SpinLockAcquire(&ftsProbeInfo->fts_lock);
 	fts_probe_started = ftsProbeInfo->fts_probe_started;
 	fts_probe_done    = ftsProbeInfo->fts_probe_done;
 	fts_statusVersion = ftsProbeInfo->fts_statusVersion;
-	SpinLockRelease(&ftsProbeInfo->fts_lck);
+	SpinLockRelease(&ftsProbeInfo->fts_lock);
 
 	/* Build a result tuple descriptor */
 	tupdesc = CreateTemplateTupleDesc(3, false);
