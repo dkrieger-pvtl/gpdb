@@ -7,26 +7,48 @@
 -- 2) Ensuring that when multiple probe requests come in before the start of a
 -- new probe, then all those requests share the same result (ie: piggyback).
 
-
 include: helpers/server_helpers.sql;
 
 create extension if not exists gp_inject_fault;
 select gp_inject_fault('all', 'reset', 1);
 
--- create extension only on master since the FTS process is only on master
-CREATE OR REPLACE FUNCTION gp_fts_probe_stats() RETURNS TABLE (
-  fts_probe_started int8,
-  fts_probe_done int8,
-  fts_statusVersion int2
-)
-AS '/@abs_builddir@/../regress/regress.so', 'gp_fts_probe_stats' LANGUAGE C EXECUTE ON MASTER READS SQL DATA;
+create temp table fts_probe_results(seq serial, started int, started_delta int, done int, done_delta int);
 
-create temp table gp_fts_probe_stats_before(fts_probe_started_before int, fts_probe_done_before int);
+-- create extension only on master since the FTS process is only on master
+create or replace function fts_probe_stats() returns table (
+    fts_probe_started int8,
+    fts_probe_done int8,
+    fts_statusVersion int2
+  )
+  as '/@abs_builddir@/../regress/regress.so', 'gp_fts_probe_stats' language c execute on master reads sql data;
+
+drop function  if exists get_stats();
+create or replace function get_stats() returns table(seq int, started bigint, started_delta bigint, done bigint, done_delta bigint) as $$
+  select seq, started, started - initial_started as started_delta, done, done - initial_done as done_delta from /* inside a function */
+    (select seq, started as initial_started, done as initial_done from /* inside a function */
+      fts_probe_results where seq = 1) as initial, /* inside a function */
+    (select fts_probe_started as started, fts_probe_done as done from /* inside a function */
+      fts_probe_stats()) as curr /* inside a function */
+  order by seq; /* inside a function */
+$$ language sql stable strict;
+
+drop function if exists insert_expected_stats(int, int);
+create or replace function insert_expected_stats(expected_start_delta int, expected_done_delta int) returns void as $$
+  INSERT INTO fts_probe_results (started, started_delta, done, done_delta) /* inside a function */
+  SELECT fts_probe_started AS started, /* inside a function */
+         expected_start_delta AS started_delta, /* inside a function */
+         fts_probe_done AS done, /* inside a function */
+         expected_done_delta AS done_delta /* inside a function */
+  FROM fts_probe_stats(); /* inside a function */
+$$ language sql volatile;
 
 -- ensure the internal regular probes do not affect our test
 !\retcode gpconfig -c gp_fts_probe_interval -v 3600;
 !\retcode gpstop -u;
 
+-- (N,N)
+select insert_expected_stats(0, 0);
+select * from get_stats();
 select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
 
 -- start three probe requests and suspend before incrementing the start tick
@@ -36,28 +58,41 @@ select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
 3&: select gp_request_fts_probe_scan();
 select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
 
--- cache the initial probe stats
-insert into gp_fts_probe_stats_before (select fts_probe_started, fts_probe_done from gp_fts_probe_stats());
-
+-- (N,N)
+select insert_expected_stats(0, 0);
+select * from get_stats();
 select gp_inject_fault_infinite('fts_after_probe', 'suspend', 1);
 select gp_inject_fault('fts_before_probe', 'resume', 1);
 select gp_wait_until_triggered_fault('fts_after_probe', 1, 1);
+
+-- (N+1,N)
+select insert_expected_stats(1, 0);
+select * from get_stats();
 
 -- request a fourth probe request during an in-progress probe scan
 -- this should not be lost and should return with fresh results
 4&: select gp_request_fts_probe_scan();
 
 select gp_inject_fault('fts_after_probe', 'resume', 1);
+-- (N+1,N+1)
+select insert_expected_stats(1, 1);
+select * from get_stats();
+
 1<:
 2<:
 3<:
+
+-- (N+1,N+1)
+select insert_expected_stats(1, 1);
+select * from get_stats();
 4<:
 
--- calculate the number of probe scans requested
-select (after.fts_probe_started - before.fts_probe_started_before) started_delta,
-       (after.fts_probe_done - before.fts_probe_done_before) done_delta
-from gp_fts_probe_stats() as after,
-     gp_fts_probe_stats_before as before;
+-- (N+2,N+2)
+select insert_expected_stats(2, 2);
+select * from get_stats();
+
+-- final results
+select started_delta, done_delta from get_stats();
 
 -- reset the internal regular probe interval
 !\retcode gpconfig -r gp_fts_probe_interval;
