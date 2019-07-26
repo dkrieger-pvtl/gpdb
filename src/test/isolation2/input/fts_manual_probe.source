@@ -61,23 +61,22 @@ select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
 -- (N,N)
 select insert_expected_stats(0, 0);
 select * from get_stats();
-
 select gp_inject_fault_infinite('fts_after_probe', 'suspend', 1);
 select gp_inject_fault('fts_before_probe', 'resume', 1);
 select gp_wait_until_triggered_fault('fts_after_probe', 1, 1);
+
 -- (N+1,N)
 select insert_expected_stats(1, 0);
 select * from get_stats();
 
 -- request a fourth probe request during an in-progress probe scan
 -- this should not be lost and should return with fresh results
-4&: select pg_sleep(10); select gp_request_fts_probe_scan();
+4&: select gp_request_fts_probe_scan();
 
 select gp_inject_fault('fts_after_probe', 'resume', 1);
 -- (N+1,N+1)
 select insert_expected_stats(1, 1);
 select * from get_stats();
-select pg_sleep(3);
 
 1<:
 2<:
@@ -86,7 +85,6 @@ select pg_sleep(3);
 -- (N+1,N+1)
 select insert_expected_stats(1, 1);
 select * from get_stats();
-
 4<:
 
 -- (N+2,N+2)
@@ -95,8 +93,6 @@ select * from get_stats();
 
 -- final results
 select started_delta, done_delta from get_stats();
-
-select * from fts_probe_results order by seq;
 
 -- reset the internal regular probe interval
 !\retcode gpconfig -r gp_fts_probe_interval;
