@@ -924,7 +924,7 @@ externalgettup_custom(FileScanDesc scan)
 		/* while there is still data in our buffer */
 		while (pstate->raw_buf_len != 0)
 		{
-			bool		error_caught = false;
+			volatile bool		error_caught = false;
 
 			/*
 			 * Invoke the custom formatter function.
