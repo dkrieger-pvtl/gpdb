@@ -112,7 +112,9 @@ FtsNotifyProber(void)
 
 	/* signal fts-probe */
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);
-
+	
+	/* for testing...must be AFTER SendPostmasterSignal */
+	SIMPLE_FAULT_INJECTOR("fts_notify_before");
 
 	/* Wait for a new fts probe to start. */
 	for (;;)
