@@ -8,7 +8,8 @@
 -- new probe, then all those requests share the same result (ie: piggyback).
 
 -- When reasoning about this test, keep in mind that the ftploop is a single process
---  and each fts_notify_probe is in its own separate process.
+--  and each fts_notify_probe is in its own separate process(e.g. the backend running
+--  that request).
 
 include: helpers/server_helpers.sql;
 
@@ -60,15 +61,21 @@ $$ language sql volatile;
 select insert_expected_stats(0, 0);   -- seq 1 (0,0)
 select seq, expected_start_delta, actual_start_delta, expected_done_delta, actual_done_delta from get_stats order by seq desc limit 1;
 
-select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
+-- NOTE: fts_notify_before sends any async signal...how to do.
 select gp_inject_fault_infinite('fts_notify_before', 'suspend', 1);
+select gp_inject_fault_infinite('fts_after_latch', 'suspend', 1);
+select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
 -- start three probe requests and suspend before incrementing the start tick
 -- they should all share the same results
 1&: select gp_request_fts_probe_scan();
 2&: select gp_request_fts_probe_scan();
 3&: select gp_request_fts_probe_scan();
-select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
 select gp_wait_until_triggered_fault('fts_notify_before', 3, 1);
+
+select gp_wait_until_triggered_fault('fts_after_latch', 1, 1);
+select gp_inject_fault('fts_after_latch', 'resume', 1);
+
+select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
 
 select gp_inject_fault('fts_notify_before', 'resume', 1);
 
@@ -84,9 +91,12 @@ select insert_expected_stats(1, 0);  -- seq 3 (1, 0)
 select seq, expected_start_delta, actual_start_delta, expected_done_delta, actual_done_delta from get_stats order by seq desc limit 1;
 
 
+
 -- request a fourth probe request during an in-progress probe scan
 -- this should not be lost and should return with fresh results
--- 4&: select pg_sleep(10.0); select gp_request_fts_probe_scan();
+select gp_inject_fault('fts_before_probe', 'reset', 1);
+select gp_inject_fault_infinite('fts_before_probe', 'suspend', 1);
+4&: select gp_request_fts_probe_scan();
 
 select gp_inject_fault('fts_after_probe', 'resume', 1);
 
@@ -94,13 +104,16 @@ select gp_inject_fault('fts_after_probe', 'resume', 1);
 2<:
 3<:
 
+select gp_wait_until_triggered_fault('fts_before_probe', 1, 1);
+select gp_inject_fault('fts_before_probe', 'resume', 1);
+
 -- we expect to pass through done twice...once from (1,2,3) and the other from (4)
 -- we expect to pass through start once more...from (4)
 -- we are getting fresh results from (4) because the start tick of (1,2,3) and (4) differ by 1.
-select insert_expected_stats(2, 2);  -- seq 4 (2, 2)
+select insert_expected_stats(1, 1);  -- seq 4 (2, 2)
 select seq, expected_start_delta, actual_start_delta, expected_done_delta, actual_done_delta from get_stats order by seq desc limit 1;
 
---4<:
+4<:
 
 select insert_expected_stats(2, 2);  -- seq 6 (2, 2)
 select seq, expected_start_delta, actual_start_delta, expected_done_delta, actual_done_delta from get_stats order by seq desc limit 1;
