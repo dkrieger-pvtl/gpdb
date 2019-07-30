@@ -138,12 +138,12 @@ mechanisms.
           |     upper        |
           |                  |
           |                  ^
-      done|----------------- |start
+      done|                  |start
           |                  |
           v     lower        |
-          |                  |  <-----+ request3
-          |                  |  <-----| request2
-          +----------->------+  <-----+ request1
+          |                  |
+          |                  |  <-----+ request1, request2, request3
+          +----------->------+
                 waitLatch
 
 

@@ -163,16 +163,16 @@ CdbComponentDatabases *readCdbComponentInfoAndUpdateStatus(MemoryContext probeCo
 		if (!SEGMENT_IS_ALIVE(segInfo))
 			FTS_STATUS_SET_DOWN(segStatus);
 
-		ftsProbeInfo->fts_status[segInfo->config->dbid] = segStatus;
+		ftsProbeInfo->status[segInfo->config->dbid] = segStatus;
 	}
 
 	/*
 	 * Initialize fts_stausVersion after populating the config details in
 	 * shared memory for the first time after FTS startup.
 	 */
-	if (ftsProbeInfo->fts_statusVersion == 0)
+	if (ftsProbeInfo->status_version == 0)
 	{
-		ftsProbeInfo->fts_statusVersion++;
+		ftsProbeInfo->status_version++;
 		writeGpSegConfigToFTSFiles();
 	}
 
@@ -311,9 +311,9 @@ void FtsLoop()
 
 		probe_start_time = time(NULL);
 
-		SpinLockAcquire(&ftsProbeInfo->fts_lock);
-		ftsProbeInfo->fts_probe_started++;
-		SpinLockRelease(&ftsProbeInfo->fts_lock);
+		SpinLockAcquire(&ftsProbeInfo->lock);
+		ftsProbeInfo->start_count++;
+		SpinLockRelease(&ftsProbeInfo->lock);
 
 		/* Need a transaction to access the catalogs */
 		StartTransactionCommand();
@@ -375,7 +375,7 @@ void FtsLoop()
 				writeGpSegConfigToFTSFiles();
 				CommitTransactionCommand();
 
-				ftsProbeInfo->fts_statusVersion++;
+				ftsProbeInfo->status_version++;
 			}
 		}
 
@@ -385,9 +385,9 @@ void FtsLoop()
 		SIMPLE_FAULT_INJECTOR("ftsLoop_after_probe");
 
 		/* Notify any waiting backends about probe cycle completion. */
-		SpinLockAcquire(&ftsProbeInfo->fts_lock);
-		ftsProbeInfo->fts_probe_done = ftsProbeInfo->fts_probe_started;
-		SpinLockRelease(&ftsProbeInfo->fts_lock);
+		SpinLockAcquire(&ftsProbeInfo->lock);
+		ftsProbeInfo->done_count = ftsProbeInfo->start_count;
+		SpinLockRelease(&ftsProbeInfo->lock);
 
 
 		/* check if we need to sleep before starting next iteration */

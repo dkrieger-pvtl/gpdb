@@ -82,7 +82,7 @@ FtsShmemInit(void)
 		shared->ControlLock = LWLockAssign();
 		ftsControlLock = shared->ControlLock;
 
-		shared->fts_probe_info.fts_statusVersion = 0;
+		shared->fts_probe_info.status_version = 0;
 		shared->pm_launch_walreceiver = false;
 	}
 }
@@ -99,18 +99,18 @@ ftsUnlock(void)
 	LWLockRelease(ftsControlLock);
 }
 
+/* see src/backend/fts/README */
 void
 FtsNotifyProber(void)
 {
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	int			new_started;
-	int			old_started;
+	uint32			initial_started;
+	uint32			started;
 
-	SpinLockAcquire(&ftsProbeInfo->fts_lock);
-	old_started = ftsProbeInfo->fts_probe_started;
-	SpinLockRelease(&ftsProbeInfo->fts_lock);
+	SpinLockAcquire(&ftsProbeInfo->lock);
+	initial_started = ftsProbeInfo->start_count;
+	SpinLockRelease(&ftsProbeInfo->lock);
 
-	/* signal fts-probe */
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);
 
 	SIMPLE_FAULT_INJECTOR("ftsNotify_before");
@@ -118,30 +118,27 @@ FtsNotifyProber(void)
 	/* Wait for a new fts probe to start. */
 	for (;;)
 	{
-		SpinLockAcquire(&ftsProbeInfo->fts_lock);
-		new_started = ftsProbeInfo->fts_probe_started;
-		SpinLockRelease(&ftsProbeInfo->fts_lock);
+		SpinLockAcquire(&ftsProbeInfo->lock);
+		started = ftsProbeInfo->start_count;
+		SpinLockRelease(&ftsProbeInfo->lock);
 
-		if (new_started != old_started)
+		if (started != initial_started)
 			break;
 
 		CHECK_FOR_INTERRUPTS();
 		pg_usleep(50000);
 	}
 
-	/*
-	 * We are waiting for fts_probe_done >= new_started, in a modulo sense.
-	 * Wait until current probe in progress is completed
-	 */
+	/* Wait until current probe in progress is completed */
 	for (;;)
 	{
-		int			new_done;
+		uint32			done;
 
-		SpinLockAcquire(&ftsProbeInfo->fts_lock);
-		new_done = ftsProbeInfo->fts_probe_done;
-		SpinLockRelease(&ftsProbeInfo->fts_lock);
+		SpinLockAcquire(&ftsProbeInfo->lock);
+		done = ftsProbeInfo->done_count;
+		SpinLockRelease(&ftsProbeInfo->lock);
 
-		if (new_done - new_started >= 0)
+		if (done - started >= 0)
 			break;
 
 		CHECK_FOR_INTERRUPTS();
@@ -161,7 +158,7 @@ FtsIsSegmentDown(CdbComponentDatabaseInfo *dBInfo)
 	if (dBInfo->config->segindex == MASTER_SEGMENT_ID)
 		return false;
 
-	return FTS_STATUS_IS_DOWN(ftsProbeInfo->fts_status[dBInfo->config->dbid]);
+	return FTS_STATUS_IS_DOWN(ftsProbeInfo->status[dBInfo->config->dbid]);
 }
 
 /*
@@ -194,5 +191,5 @@ FtsTestSegmentDBIsDown(SegmentDatabaseDescriptor **segdbDesc, int size)
 uint8
 getFtsVersion(void)
 {
-	return ftsProbeInfo->fts_statusVersion;
+	return ftsProbeInfo->status_version;
 }
