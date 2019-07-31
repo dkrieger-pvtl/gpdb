@@ -138,7 +138,7 @@ FtsNotifyProber(void)
 		done = ftsProbeInfo->done_count;
 		SpinLockRelease(&ftsProbeInfo->lock);
 
-		if (done - started >= 0)
+		if ((int64)done - (int64)started >= 0)
 			break;
 
 		CHECK_FOR_INTERRUPTS();
