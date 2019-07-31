@@ -65,6 +65,12 @@ CREATE
 -- end_ignore
 (exited with code 0)
 
+-- ensure there is no in progress ftsLoop after reloading the gp_fts_probe_interval
+select gp_request_fts_probe_scan();
+ gp_request_fts_probe_scan 
+---------------------------
+ t                         
+(1 row)
 select insert_expected_stats('initial', 0, 0);
  insert_expected_stats 
 -----------------------

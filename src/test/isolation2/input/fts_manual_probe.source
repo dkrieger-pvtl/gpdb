@@ -67,6 +67,8 @@ $$ language sql volatile;
 !\retcode gpconfig -c gp_fts_probe_interval -v 3600;
 !\retcode gpstop -u;
 
+-- ensure there is no in progress ftsLoop after reloading the gp_fts_probe_interval
+select gp_request_fts_probe_scan();
 select insert_expected_stats('initial', 0, 0);
 select * from get_stats;
 
