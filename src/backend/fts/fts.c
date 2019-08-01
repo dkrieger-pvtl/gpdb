@@ -389,6 +389,7 @@ void FtsLoop()
 		ftsProbeInfo->done_count = ftsProbeInfo->start_count;
 		SpinLockRelease(&ftsProbeInfo->lock);
 
+		SIMPLE_FAULT_INJECTOR("ftsLoop_before_wait_latch");
 
 		/* check if we need to sleep before starting next iteration */
 		elapsed = time(NULL) - probe_start_time;
