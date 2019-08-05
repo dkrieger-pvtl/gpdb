@@ -106,6 +106,7 @@ FtsNotifyProber(void)
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	int32			initial_started;
 	int32			started;
+	int32			done;
 
 	SpinLockAcquire(&ftsProbeInfo->lock);
 	initial_started = ftsProbeInfo->start_count;
@@ -132,8 +133,6 @@ FtsNotifyProber(void)
 	/* Wait until current probe in progress is completed */
 	for (;;)
 	{
-		uint32			done;
-
 		SpinLockAcquire(&ftsProbeInfo->lock);
 		done = ftsProbeInfo->done_count;
 		SpinLockRelease(&ftsProbeInfo->lock);
