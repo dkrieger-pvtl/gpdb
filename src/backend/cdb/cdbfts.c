@@ -104,8 +104,8 @@ void
 FtsNotifyProber(void)
 {
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	uint32			initial_started;
-	uint32			started;
+	int32			initial_started;
+	int32			started;
 
 	SpinLockAcquire(&ftsProbeInfo->lock);
 	initial_started = ftsProbeInfo->start_count;
@@ -138,7 +138,7 @@ FtsNotifyProber(void)
 		done = ftsProbeInfo->done_count;
 		SpinLockRelease(&ftsProbeInfo->lock);
 
-		if ((int64)done - (int64)started >= 0)
+		if (done - started >= 0)
 			break;
 
 		CHECK_FOR_INTERRUPTS();

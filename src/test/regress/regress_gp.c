@@ -870,8 +870,8 @@ gp_fts_probe_stats(PG_FUNCTION_ARGS)
 	Assert(GpIdentity.dbid == MASTER_DBID);
 
 	TupleDesc	tupdesc;
-	uint32		start_count = 0;
-	uint32		done_count = 0;
+	int32		start_count = 0;
+	int32		done_count = 0;
 	uint8		status_version = 0;
 
 	SpinLockAcquire(&ftsProbeInfo->lock);
@@ -882,8 +882,8 @@ gp_fts_probe_stats(PG_FUNCTION_ARGS)
 
 	/* Build a result tuple descriptor */
 	tupdesc = CreateTemplateTupleDesc(3, false);
-	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "start_count", INT8OID, -1, 0);
-	TupleDescInitEntry(tupdesc, (AttrNumber) 2, "end_count", INT8OID, -1, 0);
+	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "start_count", INT4OID, -1, 0);
+	TupleDescInitEntry(tupdesc, (AttrNumber) 2, "end_count", INT4OID, -1, 0);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 3, "status_version", INT2OID, -1, 0);
 
 	tupdesc = BlessTupleDesc(tupdesc);
@@ -896,8 +896,8 @@ gp_fts_probe_stats(PG_FUNCTION_ARGS)
 		MemSet(values, 0, sizeof(values));
 		MemSet(nulls, false, sizeof(nulls));
 
-		values[0] = UInt32GetDatum(start_count);
-		values[1] = UInt32GetDatum(done_count);
+		values[0] = Int32GetDatum(start_count);
+		values[1] = Int32GetDatum(done_count);
 		values[2] = UInt8GetDatum(status_version);
 
 		tuple = heap_form_tuple(tupdesc, values, nulls);

@@ -28,8 +28,8 @@ create temp table fts_probe_results(seq serial, seq_name varchar(20),
 
 -- create extension only on master since the fts process is only on master
 create or replace function fts_probe_stats() returns table (
-    start_count int8,
-    done_count int8,
+    start_count int,
+    done_count int,
     status_version int2
   )
   as '/@abs_builddir@/../regress/regress.so', 'gp_fts_probe_stats' language c execute on master reads sql data;
