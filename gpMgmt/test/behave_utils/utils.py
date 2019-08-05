@@ -667,12 +667,14 @@ def check_user_permissions(file_name, access_mode):
         raise Exception('Invalid mode specified, should be read, write or execute only')
 
 
-def are_segments_running():
+def are_segments_running(error_if_not_running = False):
     gparray = GpArray.initFromCatalog(dbconn.DbURL())
     segments = gparray.getDbList()
     for seg in segments:
         if seg.status != 'u':
-            raise Exeption("segment is not up - %s", seg)
+            if error_if_not_running:
+                raise Exeption("segment is not up - %s", seg)
+            return False
     return True
 
 
