@@ -672,7 +672,7 @@ def are_segments_running():
     segments = gparray.getDbList()
     for seg in segments:
         if seg.status != 'u':
-            return False
+            raise Exeption("segment is not up - %s", seg)
     return True
 
 
