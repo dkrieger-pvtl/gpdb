@@ -943,7 +943,7 @@ def impl(context, tablename, dbname):
 @when('all the segments are running')
 @then('all the segments are running')
 def impl(context):
-    are_segments_running(error_if_not_running=True)
+    are_segments_running()
     return
 
 @given('the "{seg}" segment information is saved')
