@@ -981,6 +981,27 @@ class GpVersion(Command):
         return cmd.get_version()
 
 #-----------------------------------------------
+class PostgresConfigPort(Command):
+    def __init__(self,name,gphome,masterDataDirectory,ctxt=LOCAL,remoteHost=None):
+        # XXX this should make use of the gphome that was passed
+        # in, but this causes problems in some environments and
+        # requires further investigation.
+
+        self.gphome=gphome
+        self.cmdStr="$GPHOME/bin/postgres -C port -D %s" % masterDataDirectory
+        Command.__init__(self,name,self.cmdStr,ctxt,remoteHost)
+
+    def get_port(self):
+        return self.results.stdout.strip()
+
+    @staticmethod
+    def local(name,gphome,masterDataDirectory):
+        cmd=PostgresConfigPort(name,gphome,masterDataDirectory)
+        cmd.run(validateAfter=True)
+        return cmd.get_port()
+
+
+#-----------------------------------------------
 class GpCatVersion(Command):
     """
     Get the catalog version of the binaries in a given GPHOME

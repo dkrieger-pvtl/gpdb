@@ -193,7 +193,7 @@ class GpStart:
     def _read_postgresqlconf(self):
         logger.debug("Obtaining master's port from master data directory")
         pgconf_dict = pgconf.readfile(self.master_datadir + "/postgresql.conf")
-        self.port = pgconf_dict.int('port')
+        self.port = gp.PostgresConfigPort.local('local port read', self.gphome, self.master_datadir)
         logger.debug("Read from postgresql.conf port=%s" % self.port)
         self.max_connections = pgconf_dict.int('max_connections')
         logger.debug("Read from postgresql.conf max_connections=%s" % self.max_connections)

@@ -72,6 +72,7 @@ class GpStart(GpTestCase):
         self.mock_gp.get_masterdatadir.return_value = 'masterdatadir'
         self.mock_gp.GpCatVersion.local.return_value = 1
         self.mock_gp.GpCatVersionDirectory.local.return_value = 1
+        self.mock_gp.PostgresConfigPort.local.return_value = 12345
         self.mock_gp.DEFAULT_GPSTART_NUM_WORKERS = gp.DEFAULT_GPSTART_NUM_WORKERS
         sys.argv = ["gpstart"]  # reset to relatively empty args list
 
@@ -151,6 +152,10 @@ class GpStart(GpTestCase):
         self.subject.logger.warning.assert_any_call('Because of --skip-heap-checksum-validation, '
                                                     'the GUC for data_checksums '
                                                     'will not be checked between master and segments')
+
+    # def test_reading_port_from_postgresconf_succeeds(self):
+    #     value = gp.PostgresConfigPort.local('local port read', '', gp.get_masterdatadir())
+    #     self.assertEqual(value, 1)
 
     def test_log_when_heap_checksum_validation_fails(self):
         sys.argv = ["gpstart", "-a", "-S"]
