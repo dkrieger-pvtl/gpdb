@@ -93,3 +93,4 @@ Feature: Tests for gpinitstandby feature
         And gpinitstandby should not print "Traceback" to stdout
         When the user runs pg_controldata against the standby data directory
         Then pg_controldata should print "Data page checksum version:           0" to stdout
+

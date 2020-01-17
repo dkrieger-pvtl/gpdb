@@ -506,8 +506,8 @@ class GpAddMirrorsProgram:
             for segmentPair in gpArray.getSegmentList():
                 # Start with an empty string so that the later .join prepends a newline to the first entry
                 entries = ['']
-                # Add the samenet replication entry to support single-host development
-                entries.append('host  replication {username} samenet trust'.format(username=unix.getUserName()))
+                # Add the samehost replication entry to support single-host development
+                entries.append('host  replication {username} samehost trust'.format(username=unix.getUserName()))
                 if self.__options.hba_hostnames:
                     mirror_hostname, _, _ = socket.gethostbyaddr(segmentPair.mirrorDB.getSegmentHostName())
                     entries.append("host all {username} {hostname} trust".format(username=unix.getUserName(), hostname=mirror_hostname))

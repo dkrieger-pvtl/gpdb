@@ -371,14 +371,11 @@ try:
     if numberOfWorkers > 0:
         pool = WorkerPool(numWorkers=numberOfWorkers)
         try:
-            for entry in PgHbaEntriesToUpdate:
+            for primary_datadir, primary_hostname, newMirror_hostname in PgHbaEntriesToUpdate:
                 # Start with an empty string so that the later .join prepends a newline to the first entry
                 entries = ['']
-                # Add the samenet replication entry to support single-host development
-                entries.append("host replication {username} samenet trust".format(username=unix.getUserName()))
-                primary_datadir = entry[0]
-                primary_hostname = entry[1]
-                newMirror_hostname = entry[2]
+                # Add the samehost replication entry to support single-host development
+                entries.append("host replication {username} samehost trust".format(username=unix.getUserName()))
                 if options.hba_hostnames:
                     hostname, _, _ = socket.gethostbyaddr(newMirror_hostname)
                     entries.append("host all {username} {hostname} trust".format(username=unix.getUserName(), hostname=hostname))

@@ -230,8 +230,8 @@ CREATE_QES_MIRROR () {
     # on mirror, just copy data from primary as the primary has all the relevant pg_hba.conf content
     # only the entry for replication is added on the primary if mirror hosts are there
     LOG_MSG "[INFO]:-Running pg_basebackup to init mirror on ${GP_HOSTADDRESS} using primary on ${PRIMARY_HOSTADDRESS} ..." 1
-    # Add the samenet replication entry to support single-host development
-    local PG_HBA_ENTRIES="${PG_HBA_ENTRIES}"$'\n'"host  replication ${GP_USER} samenet trust"
+    # Add the samehost replication entry to support single-host development
+    local PG_HBA_ENTRIES="${PG_HBA_ENTRIES}"$'\n'"host  replication ${GP_USER} samehost trust"
     if [ $HBA_HOSTNAMES -eq 0 ];then
         local MIRROR_ADDRESSES=($($TRUSTED_SHELL ${GP_HOSTADDRESS} "${GPHOME}"/libexec/ifaddrs --no-loopback))
         local PRIMARY_ADDRESSES=($($TRUSTED_SHELL ${PRIMARY_HOSTADDRESS} "${GPHOME}"/libexec/ifaddrs --no-loopback))

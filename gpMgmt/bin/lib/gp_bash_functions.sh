@@ -804,8 +804,8 @@ BUILD_MASTER_PG_HBA_FILE () {
 
         # todo: do we still need this entry?
         $ECHO "local    replication $USER_NAME         $PG_METHOD" >> ${GP_DIR}/$PG_HBA
-        # Add the samenet replication entry to support single-host development
-        $ECHO "host     replication $USER_NAME         samenet       trust" >> ${GP_DIR}/$PG_HBA
+        # Add the samehost replication entry to support single-host development
+        $ECHO "host     replication $USER_NAME         samehost       trust" >> ${GP_DIR}/$PG_HBA
         if [ $HBA_HOSTNAMES -eq 0 ];then
             local MASTER_IP_ADDRESS_NO_LOOPBACK=($("$GPHOME"/libexec/ifaddrs --no-loopback))
             if [ x"" != x"$STANDBY_HOSTNAME" ];then
