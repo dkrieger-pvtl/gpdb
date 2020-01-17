@@ -135,7 +135,7 @@ def impl(context, host, filename):
                 raise Exception("failed to parse pg_hba.conf line '%s'" % contents)
             hostname = tokens[3].strip()
             # ignore replication entries
-            if hostname == "samenet":
+            if hostname == "samehost":
                 continue
             if "/" in hostname:
                 continue
