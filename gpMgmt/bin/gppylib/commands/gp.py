@@ -822,8 +822,8 @@ class ModifyConfSetting(Command):
 class ModifyPgHbaConfSetting(Command):
     def __init__(self, name, file, ctxt, remoteHost, addresses, is_hba_hostnames):
         username = getUserName()
-        # Add a samenet replication entry to support single-host development.
-        hba_content = "\nhost replication {username} samenet trust".format(username=username)
+        # Add a samehost replication entry to support single-host development.
+        hba_content = "\nhost replication {username} samehost trust".format(username=username)
 
         for address in addresses:
             if is_hba_hostnames:
