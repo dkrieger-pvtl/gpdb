@@ -1695,6 +1695,7 @@ READ_INPUT_CONFIG () {
 
     . $INPUT_CONFIG
     SET_VAR $QD_PRIMARY_ARRAY
+    QD_PRIMARY_ARRAY="$GP_HOSTNAME"~"$GP_HOSTADDRESS"~"$GP_PORT"~"$GP_DIR"~"$GP_DBID"~"$GP_CONTENT"
     MASTER_HOSTNAME=$GP_HOSTADDRESS
     MASTER_DIRECTORY=`$DIRNAME $GP_DIR`
     MASTER_PORT=$GP_PORT
@@ -1703,6 +1704,15 @@ READ_INPUT_CONFIG () {
     MACHINE_LIST=()
     DATA_DIRECTORY=()
     CONTENT_COUNT=0
+
+    local TMP_PRIMARY_ARRAY=()
+    for QE in ${PRIMARY_ARRAY[@]}
+    do
+      SET_VAR $QE
+      TMP_PRIMARY_ARRAY=("${TMP_PRIMARY_ARRAY[@]}" "$GP_HOSTNAME"~"$GP_HOSTADDRESS"~"$GP_PORT"~"$GP_DIR"~"$GP_DBID"~"$GP_CONTENT")
+    done
+    PRIMARY_ARRAY=("${TMP_PRIMARY_ARRAY[@]}")
+
     for QE in ${PRIMARY_ARRAY[@]}
     do
         SET_VAR $QE
@@ -1717,6 +1727,15 @@ READ_INPUT_CONFIG () {
     
     if [ x"" != x"${MIRROR_ARRAY}" ] ; then
         MIRRORING=1
+
+        local TMP_MIRROR_ARRAY=()
+        for QE in "${MIRROR_ARRAY[@]}"
+        do
+            SET_VAR $QE
+            TMP_MIRROR_ARRAY=("${TMP_MIRROR_ARRAY[@]}" "$GP_HOSTNAME"~"$GP_HOSTADDRESS"~"$GP_PORT"~"$GP_DIR"~"$GP_DBID"~"$GP_CONTENT")
+        done
+        MIRROR_ARRAY=("${TMP_MIRROR_ARRAY[@]}")
+
         MIRROR_DATA_DIRECTORY=()
         for QE in ${MIRROR_ARRAY[@]}
         do
