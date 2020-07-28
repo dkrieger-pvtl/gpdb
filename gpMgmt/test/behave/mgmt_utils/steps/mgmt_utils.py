@@ -2652,6 +2652,33 @@ def impl(context, config_file):
     run_gpcommand(context, 'gpinitsystem -a -c ../gpAux/gpdemo/clusterConfigFile -O %s' % config_file)
     check_return_code(context, 0)
 
+@when('generate an input cluster config file "{config_file}"')
+def impl(context, config_file):
+    inputfile_contents="""ARRAY_NAME="Greenplum DCA"
+
+TRUSTED_SHELL=ssh
+
+CHECK_POINT_SEGMENTS=8
+
+ENCODING=unicode
+
+QD_PRIMARY_ARRAY=mdw:5432:{0}/gpseg-1:1:-1
+
+declare -a PRIMARY_ARRAY=(
+sdw1:1025:{0}/gpseg0:2:0
+sdw2:1026:{0}/gpseg1:3:1
+)
+
+declare -a MIRROR_ARRAY=(
+sdw2:1153:{0}/gpseg0:4:0
+sdw1:1154:{0}/gpseg1:5:1
+)
+    """.format(context.working_directory)
+    inputfile_name = "%s" % config_file
+    with open(inputfile_name, 'w') as fd:
+        fd.write(inputfile_contents)
+
+
 @when('check segment conf: postgresql.conf')
 @then('check segment conf: postgresql.conf')
 def step_impl(context):
