@@ -196,12 +196,15 @@ def stop_database_if_started(context):
     if check_database_is_running(context):
         stop_database(context)
 
-
 def stop_database(context):
     run_gpcommand(context, 'gpstop -M fast -a')
     if context.exception:
         raise context.exception
 
+def stop_database_with_master_datadir(context, master_data_dir):
+    run_gpcommand(context, 'gpstop -M fast -a -d %s' % master_data_dir)
+    if context.exception:
+        raise context.exception
 
 def stop_primary(context, content_id):
     get_psegment_sql = 'select datadir, hostname from gp_segment_configuration where content=%i and role=\'p\';' % content_id

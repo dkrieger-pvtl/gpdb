@@ -17,6 +17,17 @@ Feature: gpinitsystem tests
         And gpconfig should print "Master  value: off" to stdout
         And gpconfig should print "Segment value: off" to stdout
 
+    # TODO: this creates a non-standard cluster that we must stop in this function
+    #   can we make this like a demo cluster?
+    Scenario: gpinitsystem creates a cluster with a legacy input configuration file
+        Given a working directory of the test as '/tmp/gpinitsystem_config'
+        And a subdirectory of the working directory 'mirror'
+        And the database is not running
+        And a legacy format initialization file '/tmp/gpinitsystem_config/clusterConfigfile' with mirrors under 'mirror'
+        When initialize a cluster using "/tmp/gpinitsystem_config/clusterConfigfile" with --ignore-warnings
+        Then gpinitsystem should return a return code of 0
+        And the cluster at "/tmp/gpinitsystem_config/gpseg-1" is stopped
+
     Scenario: gpinitsystem creates a cluster when the user confirms the dialog when --ignore-warnings is passed in
         Given create demo cluster config
          When the user runs command "echo y | gpinitsystem -c ../gpAux/gpdemo/clusterConfigFile --ignore-warnings"

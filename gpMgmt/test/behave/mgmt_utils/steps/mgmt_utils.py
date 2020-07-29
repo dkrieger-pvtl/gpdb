@@ -2642,6 +2642,11 @@ def impl(context, config_file):
     run_gpcommand(context, 'gpinitsystem -a -I %s -l /tmp/gpinitsystemtest -s localhost -P 21100 -S $MASTER_DATA_DIRECTORY/newstandby -h ../gpAux/gpdemo/hostfile' % config_file)
     check_return_code(context, 0)
 
+@when('initialize a cluster using "{config_file}" with --ignore-warnings')
+def impl(context, config_file):
+    run_gpcommand(context, 'gpinitsystem -a -I %s -l /tmp/ --ignore-warnings' % config_file)
+    check_return_code(context, 0)
+
 @when('initialize a cluster using "{config_file}"')
 def impl(context, config_file):
     run_gpcommand(context, 'gpinitsystem -a -I %s -l /tmp/' % config_file)
@@ -2651,6 +2656,42 @@ def impl(context, config_file):
 def impl(context, config_file):
     run_gpcommand(context, 'gpinitsystem -a -c ../gpAux/gpdemo/clusterConfigFile -O %s' % config_file)
     check_return_code(context, 0)
+
+@given("a subdirectory of the working directory '{subdir}'")
+def impl(context, subdir):
+    os.mkdir(context.working_directory + os.path.sep + subdir)
+
+@then('the cluster at "{master_data_dir}" is stopped')
+def impl(context, master_data_dir):
+    stop_database_with_master_datadir(context, master_data_dir)
+
+@given("a legacy format initialization file '{init_file}' with mirrors under '{mirror}'")
+def impl(context, init_file, mirror):
+    inputfile_contents="""ARRAY_NAME="Greenplum DCA"
+
+TRUSTED_SHELL=ssh
+
+CHECK_POINT_SEGMENTS=8
+
+ENCODING=unicode
+
+QD_PRIMARY_ARRAY={0}:5432:{1}/gpseg-1:1:-1
+
+declare -a PRIMARY_ARRAY=(
+{0}:1025:{1}/gpseg0:2:0
+{0}:1026:{1}/gpseg1:3:1
+)
+
+# NOTE: it is critical that the ports(1153/1154) are ordered low to high but
+#  the contents(1/0) are ordered high to low
+declare -a MIRROR_ARRAY=(
+{0}:1153:{1}/{2}/gpseg_mirror1:5:1
+{0}:1154:{1}/{2}/gpseg_mirror0:4:0
+)
+    """.format(socket.gethostname(), context.working_directory, mirror)
+    inputfile_name = "%s" % init_file
+    with open(inputfile_name, 'w') as fd:
+        fd.write(inputfile_contents)
 
 @when('generate an input cluster config file "{config_file}"')
 def impl(context, config_file):
