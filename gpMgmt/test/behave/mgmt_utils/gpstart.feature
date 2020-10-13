@@ -113,3 +113,18 @@ Feature: Validate command line arguments
           And gpstart should print "No standby master configured" to stdout
           And gpstart should return a return code of 0
           And all the segments are running
+
+    Scenario: gpstart starts even if a segment host is unreachable
+        Given the database is running
+          And the hostname of segment 2 is changed to "nonexistent_host"
+
+         When the user runs command "pkill -9 postgres"
+          And gpstart is run with prompts accepted
+
+         Then gpstart should print "Host nonexistent_host is unreachable:" to stdout
+          And gpstart should print "Marking segment 2 down because nonexistent_host is unreachable" to stdout
+          And the status of segment 2 should be "d"
+
+          And the hostname of segment 2 is reset
+          And the status of segment 2 is changed to "u"
+          And all the segments are running

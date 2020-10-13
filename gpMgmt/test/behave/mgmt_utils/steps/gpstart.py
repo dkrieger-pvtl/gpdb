@@ -3,7 +3,8 @@ import signal
 import subprocess
 
 from behave import given, when, then
-from  test.behave_utils import utils
+from test.behave_utils import utils
+from gppylib.commands.base import Command
 
 @given('the temporary filespace is moved')
 def impl(context):
@@ -98,3 +99,42 @@ def impl(context):
 
     context.stdout_message, context.stderr_message = p.communicate()
     context.ret_code = p.returncode
+
+@given('the hostname of segment {dbid} is changed to "{hostname}"' )
+def impl(context, dbid, hostname):
+    cmd = "psql -t -d template1 -c 'SELECT hostname FROM gp_segment_configuration WHERE dbid = %s'" % dbid
+    cmd = Command(name="retrieving hostname for dbid %s" % dbid, cmdStr=cmd)
+    cmd.run(validateAfter=True)
+    context.old_hostname = cmd.get_stdout().strip()
+
+    cmd = '''PGOPTIONS='-c gp_session_role=utility' psql -d template1 -c "SET allow_system_table_mods='dml';
+        UPDATE gp_segment_configuration SET hostname = '%s' WHERE dbid = %s;
+        UPDATE gp_segment_configuration SET address = '%s' WHERE dbid = %s"''' % (hostname, dbid, hostname, dbid)
+    cmd = Command(name="updating hostname", cmdStr=cmd)
+    cmd.run(validateAfter=True)
+
+@then('the hostname of segment {dbid} is reset' )
+def impl(context, dbid):
+    if not hasattr(context, 'old_hostname'):
+        raise Exception("Cannot reset hostname: no hostname is saved")
+    cmd = '''PGOPTIONS='-c gp_session_role=utility' psql -d template1 -c "SET allow_system_table_mods='dml';
+        UPDATE gp_segment_configuration SET hostname = '%s' WHERE dbid = %s"''' % (context.old_hostname, dbid)
+    cmd = Command(name="updating hostname", cmdStr=cmd)
+    cmd.run(validateAfter=True)
+
+@then('the status of segment {dbid} should be "{expected_status}"' )
+def impl(context, dbid, expected_status):
+    cmd = "psql -t -d template1 -c 'SELECT status FROM gp_segment_configuration WHERE dbid = %s'" % dbid
+    cmd = Command(name="retrieving status for hostname %s" % dbid, cmdStr=cmd)
+    cmd.run(validateAfter=True)
+
+    status = cmd.get_stdout().strip()
+    if status != expected_status:
+        raise Exception("Expected status to be %s, but it is %s" % (expected_status, status))
+
+@then('the status of segment {dbid} is changed to "{status}"' )
+def impl(context, dbid, status):
+    cmd = '''PGOPTIONS='-c gp_session_role=utility' psql -d template1 -c "SET allow_system_table_mods='dml';
+        UPDATE gp_segment_configuration SET status = '%s' WHERE dbid = %s"''' % (status, dbid)
+    cmd = Command(name="updating hostname", cmdStr=cmd)
+    cmd.run(validateAfter=True)
