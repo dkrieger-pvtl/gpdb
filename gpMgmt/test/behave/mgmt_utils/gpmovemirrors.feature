@@ -78,7 +78,7 @@ Feature: Tests for gpmovemirrors
         And pg_hba file "/data/gpdata/primary/gpseg1/pg_hba.conf" on host "sdw1" contains only cidr addresses
         And a sample gpmovemirrors input file is created in "spread" configuration
         When the user runs "gpmovemirrors --input=/tmp/gpmovemirrors_input_spread"
-        Then gpmovemirrors should return a return code of 0
+        Then gpmovemirrors should return a return code of 1
         # Verify that mirrors are functional in the new configuration
         Then verify the database has mirrors
         And all the segments are running
