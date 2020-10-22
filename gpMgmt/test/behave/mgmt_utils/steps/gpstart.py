@@ -50,7 +50,8 @@ def impl(context):
         utils.stop_database_if_started(context)
 
         subprocess.check_call(['gpstart', '-am'])
-        _run_sql("""
+        _run_sql(u"""
+            SET allow_system_table_mods='true';
             UPDATE gp_segment_configuration
                SET hostname = master.hostname,
                     address = master.address
@@ -60,10 +61,10 @@ def impl(context):
                       WHERE content = -1 and role = 'p'
                    ) master
              WHERE content = -1 AND role = 'm'
-        """, opts=opts)
+        """, opts={'gp_session_role':'utility'})
         subprocess.check_call(['gpstop', '-am'])
 
-        context.add_cleanup(cleanup, context)
+    context.add_cleanup(cleanup, context)
 
 def _handle_sigpipe():
     """
@@ -116,7 +117,7 @@ def impl(context):
     for dbid, hostname in context.old_hostnames.items():
         change_hostname(dbid, hostname)
 
-    context.execute_steps("""
+    context.execute_steps(u'''
     When the user runs "gprecoverseg -a"
     Then gprecoverseg should return a return code of 0
     And all the segments are running
@@ -125,4 +126,4 @@ def impl(context):
     Then gprecoverseg should return a return code of 0
     And all the segments are running
     And the segments are synchronized
-    """)
+    ''')
