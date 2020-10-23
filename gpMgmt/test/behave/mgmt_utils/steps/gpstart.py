@@ -4,6 +4,7 @@ import subprocess
 
 from behave import given, when, then
 from  test.behave_utils import utils
+from gppylib.commands.base import Command
 
 @given('the temporary filespace is moved')
 def impl(context):
@@ -30,6 +31,15 @@ def _run_sql(sql, opts=None):
         "postgres",
         "-c", sql,
     ], env=env)
+
+def do_catalog_query(query):
+    cmd = '''PGOPTIONS='-c gp_session_role=utility' psql -t -d template1 -c "SET allow_system_table_mods='dml'; %s"''' % query
+    cmd = Command(name="catalog query", cmdStr=cmd)
+    cmd.run(validateAfter=True)
+    return cmd
+
+def change_hostname(dbid, hostname):
+    do_catalog_query("UPDATE gp_segment_configuration SET hostname = '{0}', address = '{0}' WHERE dbid = {1}".format(hostname, dbid))
 
 @when('the standby host goes down')
 def impl(context):
@@ -98,3 +108,41 @@ def impl(context):
 
     context.stdout_message, context.stderr_message = p.communicate()
     context.ret_code = p.returncode
+
+@given('segment {dbid} goes down' )
+def impl(context, dbid):
+    result = do_catalog_query("SELECT hostname FROM gp_segment_configuration WHERE dbid = %s" % dbid)
+    if not hasattr(context, 'old_hostnames'):
+        context.old_hostnames = {}
+    context.old_hostnames[dbid] = result.get_stdout().strip()
+    change_hostname(dbid, 'invalid_host')
+
+@then('the status of segment {dbid} should be "{expected_status}"' )
+def impl(context, dbid, expected_status):
+    result = do_catalog_query("SELECT status FROM gp_segment_configuration WHERE dbid = %s" % dbid)
+
+    status = result .get_stdout().strip()
+    if status != expected_status:
+        raise Exception("Expected status to be %s, but it is %s" % (expected_status, status))
+
+@then('the status of segment {dbid} is changed to "{status}"' )
+def impl(context, dbid, status):
+    do_catalog_query("UPDATE gp_segment_configuration SET status = '%s' WHERE dbid = %s" % (status, dbid))
+
+@then('the cluster is returned to a good state' )
+def impl(context):
+    if not hasattr(context, 'old_hostnames'):
+        raise Exception("Cannot reset segment hostnames: no hostnames are saved")
+    for dbid, hostname in context.old_hostnames.items():
+        change_hostname(dbid, hostname)
+
+    context.execute_steps(u'''
+    When the user runs "gprecoverseg -a"
+    Then gprecoverseg should return a return code of 0
+    And all the segments are running
+    And the segments are synchronized
+    When the user runs "gprecoverseg -a -r"
+    Then gprecoverseg should return a return code of 0
+    And all the segments are running
+    And the segments are synchronized
+    ''')

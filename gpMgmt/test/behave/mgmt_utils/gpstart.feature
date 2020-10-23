@@ -99,7 +99,7 @@ Feature: Validate command line arguments
           And gpstart should print "Number of segments not attempted to start: 1" to stdout
          # Cleanup
          Then the user runs "gprecoverseg -a"
-
+      
     Scenario: gpstart starts even if the standby host is unreachable
         Given the database is running
           And the temporary filespace is moved
@@ -113,3 +113,20 @@ Feature: Validate command line arguments
           And gpstart should print "No standby master configured" to stdout
           And gpstart should return a return code of 0
           And all the segments are running
+
+        @wip
+    Scenario: gpstart starts even if a segment host is unreachable
+          Given the database is running
+          And segment 2 goes down
+          And segment 3 goes down
+          And the user runs command "pkill -9 postgres"
+
+          When gpstart is run with prompts accepted
+
+          Then gpstart should print "Host invalid_host is unreachable" to stdout
+          And gpstart should print "Marking segment 2 down because invalid_host is unreachable" to stdout
+          And gpstart should print "Marking segment 3 down because invalid_host is unreachable" to stdout
+          And the status of segment 2 should be "d"
+          And the status of segment 3 should be "d"
+
+          And the cluster is returned to a good state
