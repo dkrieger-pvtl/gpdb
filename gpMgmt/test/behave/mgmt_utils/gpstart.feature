@@ -31,16 +31,15 @@ Feature: gpstart behave tests
     @demo_cluster
     Scenario: gpstart starts even if a segment host is unreachable
         Given the database is running
-          And segment 2 goes down
-          And segment 3 goes down
+          And the primary on content 0 goes down
+          And the mirror on content 1 goes down
           And the user runs command "pkill -9 postgres"
 
          When gpstart is run with prompts accepted
 
          Then gpstart should print "Host invalid_host is unreachable" to stdout
-          And gpstart should print "Marking segment 2 down because invalid_host is unreachable" to stdout
-          And gpstart should print "Marking segment 3 down because invalid_host is unreachable" to stdout
-          And the status of segment 2 should be "d"
-          And the status of segment 3 should be "d"
+          And gpstart should print unreachable host messages for the down segments
+          And the status of the primary on content 0 should be "d"
+          And the status of the mirror on content 1 should be "d"
 
           And the cluster is returned to a good state
