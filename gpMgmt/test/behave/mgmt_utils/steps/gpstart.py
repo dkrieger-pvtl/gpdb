@@ -118,18 +118,18 @@ def impl(context):
 
 @then('the status of the {seg_type} on content {content} should be "{expected_status}"')
 def impl(context, seg_type, content, expected_status):
-    role = ''
+    preferred_role = ''
     if seg_type == "primary":
-        role = 'p'
+        preferred_role = 'p'
     elif seg_type == "mirror":
-        role = 'm'
+        preferred_role = 'm'
     else:
         raise Exception("Invalid segment type %s (options are primary and mirror)" % seg_type)
 
     with dbconn.connect(dbconn.DbURL(dbname="template1"), unsetSearchPath=False) as conn:
-        status = dbconn.execSQLForSingleton(conn, "SELECT status FROM gp_segment_configuration WHERE content = %s AND role = '%s'" % (content, role))
+        status = dbconn.execSQLForSingleton(conn, "SELECT status FROM gp_segment_configuration WHERE content = %s AND preferred_role = '%s'" % (content, preferred_role))
     if status != expected_status:
-        raise Exception("Expected status to be %s, but it is %s" % (expected_status, status))
+        raise Exception("Expected status for role %s to be %s, but it is %s" % (preferred_role, expected_status, status))
 
 @then('the cluster is returned to a good state')
 def impl(context):
