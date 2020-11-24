@@ -116,12 +116,20 @@ def impl(context):
     for dbid in sorted(context.down_segment_dbids):
         context.execute_steps(u'Then gpstart should print "Marking segment %s down because invalid_host is unreachable" to stdout' % dbid)
 
+# this can be done to have the test run faster...
+# gpconfig -c gp_fts_mark_mirror_down_grace_period -v 5
+# postgres=# show gp_fts_mark_mirror_down_grace_period;
 @then('the status of the {seg_type} on content {content} should be "{expected_status}"')
 def impl(context, seg_type, content, expected_status):
     preferred_role = ''
     if seg_type == "primary":
         preferred_role = 'p'
     elif seg_type == "mirror":
+        utils.trigger_fts_probe()
+        print "sleeping..."
+        time.sleep(40)
+        print "...up"
+        utils.trigger_fts_probe()
         preferred_role = 'm'
     else:
         raise Exception("Invalid segment type %s (options are primary and mirror)" % seg_type)
