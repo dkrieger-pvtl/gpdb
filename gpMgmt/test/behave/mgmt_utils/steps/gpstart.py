@@ -27,9 +27,9 @@ def _run_sql(sql, opts=None):
         "-c", sql,
     ], env=env)
 
-def change_hostname(content, role, hostname):
+def change_hostname(content, preferred_role, hostname):
     with dbconn.connect(dbconn.DbURL(dbname="template1"), allowSystemTableMods=True, unsetSearchPath=False) as conn:
-        dbconn.execSQL(conn, "UPDATE gp_segment_configuration SET hostname = '{0}', address = '{0}' WHERE content = {1} AND role = '{2}'".format(hostname, content, role))
+        dbconn.execSQL(conn, "UPDATE gp_segment_configuration SET hostname = '{0}', address = '{0}' WHERE content = {1} AND preferred_role = '{2}'".format(hostname, content, preferred_role))
         conn.commit()
 
 @when('the standby host goes down')
