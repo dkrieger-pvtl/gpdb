@@ -1,7 +1,7 @@
 from mock import *
 from gp_unittest import *
 from gppylib.gparray import GpArray, Segment
-from gppylib.commands.base import WorkerPool
+from gppylib.commands.base import WorkerPool, CommandResult
 
 class GpMirrorListToBuildTestCase(GpTestCase):
 
@@ -26,7 +26,8 @@ class GpMirrorListToBuildTestCase(GpTestCase):
             patch('gppylib.commands.base.Command.get_return_code', return_value=0),
             # Mock all pg_rewind commands to be not successful
             patch('gppylib.commands.base.Command.was_successful', return_value=False),
-            patch('gppylib.commands.base.Command.get_stdout', return_value='Mocking results')
+            patch('gppylib.commands.base.Command.get_stdout', return_value='Mocking results'),
+            patch('gppylib.commands.base.Command.results', return_value=CommandResult(1, 'stdout:Failed', 'stderr:Failed', True, False))
         ])
         from gppylib.operations.buildMirrorSegments import GpMirrorListToBuild
         # WorkerPool is the only valid parameter required in this test
