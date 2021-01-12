@@ -194,6 +194,18 @@ get_major_server_version(ClusterInfo *cluster)
 	}
 }
 
+//// 6t7_FIXEM do a macro
+const char *PG_OPTIONS_UTILITY_MODE_VERSION(uint32 major_version)
+{
+	if (GET_MAJOR_VERSION(major_version) < 1200)
+	{
+		return " PGOPTIONS='-c gp_session_role=utility' ";
+	}
+	else
+	{
+		return " PGOPTIONS='-c gp_role=utility' ";
+	}
+}
 
 static void
 stop_postmaster_atexit(void)

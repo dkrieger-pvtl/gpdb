@@ -105,5 +105,6 @@ void check_greenplum(void);
 void report_progress(ClusterInfo *cluster, progress_type op, char *fmt,...)
 pg_attribute_printf(3, 4);
 void close_progress(void);
+const char *PG_OPTIONS_UTILITY_MODE_VERSION(uint32 major_version);
 
 #endif /* PG_UPGRADE_GREENPLUM_H */

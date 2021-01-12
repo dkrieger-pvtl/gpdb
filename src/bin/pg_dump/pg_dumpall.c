@@ -207,6 +207,9 @@ main(int argc, char *argv[])
 		}
 	}
 
+	//6to7 FIXME
+//	pg_usleep(1000000 * 60);
+	
 	if ((ret = find_other_exec(argv[0], "pg_dump", PGDUMP_VERSIONSTR,
 							   pg_dump_bin)) < 0)
 	{
