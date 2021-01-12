@@ -73,7 +73,12 @@ get_db_conn(ClusterInfo *cluster, const char *db_name)
 	}
 
 	appendPQExpBuffer(&conn_opts, " options=");
-	appendConnStrVal(&conn_opts, "-c gp_role=utility");
+
+	if  (GET_MAJOR_VERSION(cluster->major_version) < 1200) {
+	    appendConnStrVal(&conn_opts, "-c gp_session_role=utility");
+	} else {
+	   appendConnStrVal(&conn_opts, "-c gp_role=utility");
+	}
 
 	conn = PQconnectdb(conn_opts.data);
 	termPQExpBuffer(&conn_opts);
