@@ -357,7 +357,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			got_xid = true;
 		}
 		else if ((p = strstr(bufin, "Latest checkpoint's NextGxid:")) != NULL)
-		{
+		{ //6to7_FIXME: how do we set this fpr 6?
 			p = strchr(p, ':');
 
 			if (p == NULL || strlen(p) <= 1)
@@ -604,6 +604,13 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			got_nextxlogfile = true;
 		}
 	}
+
+
+    //FIXME..this for 6X and prior
+    if  (GET_MAJOR_VERSION(cluster->major_version) < 1200) {
+             got_gxid = true;
+    }
+
 
 	/* verify that we got all the mandatory pg_control data */
 	if (!got_xid || !got_gxid || !got_oid ||
