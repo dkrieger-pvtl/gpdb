@@ -606,8 +606,9 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	}
 
 
-    //FIXME..this for 6X and prior
+    //6to7: FIXME..this for 6X and prior
     if  (GET_MAJOR_VERSION(cluster->major_version) < 1200) {
+			 cluster->controldata.chkpnt_nxtgxid = 1; //6to7 FIXME: how to set this?
              got_gxid = true;
     }
 
