@@ -357,7 +357,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			got_xid = true;
 		}
 		else if ((p = strstr(bufin, "Latest checkpoint's NextGxid:")) != NULL)
-		{ //6to7_FIXME: how do we set this fpr 6?
+		{
 			p = strchr(p, ':');
 
 			if (p == NULL || strlen(p) <= 1)

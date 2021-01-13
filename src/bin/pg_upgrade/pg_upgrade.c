@@ -443,8 +443,8 @@ prepare_new_cluster(void)
 	{
 		prep_status("Analyzing all rows in the new cluster");
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-				  psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-				  "\"%s/vacuumdb\" %s --all --analyze %s"),
+				  "%s \"%s/vacuumdb\" %s --all --analyze %s",
+				  PG_OPTIONS_UTILITY_MODE_VERSION(new_cluster.major_version),
 				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
 				  log_opts.verbose ? "--verbose" : "");
 		check_ok();
@@ -459,8 +459,8 @@ prepare_new_cluster(void)
 	 */
 	prep_status("Freezing all rows in the new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-			  "\"%s/vacuumdb\" %s --all --freeze %s"),
+			  "%s \"%s/vacuumdb\" %s --all --freeze %s",
+			  PG_OPTIONS_UTILITY_MODE_VERSION(new_cluster.major_version),
 			  new_cluster.bindir, cluster_conn_opts(&new_cluster),
 			  log_opts.verbose ? "--verbose" : "");
 	check_ok();
@@ -481,8 +481,8 @@ prepare_new_globals(void)
 	prep_status("Restoring global objects in the new cluster");
 
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-			  "\"%s/psql\" " EXEC_PSQL_ARGS " %s -f \"%s\""),
+			  "%s \"%s/psql\" " EXEC_PSQL_ARGS " %s -f \"%s\"",
+			  PG_OPTIONS_UTILITY_MODE_VERSION(new_cluster.major_version),
 			  new_cluster.bindir, cluster_conn_opts(&new_cluster),
 			  GLOBALS_DUMP_FILE);
 	check_ok();
@@ -564,12 +564,11 @@ create_new_objects(void)
 		else
 			create_opts = "--create";
 
-		parallel_exec_prog(log_file_name,
-						   NULL,
-						   psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-						   "\"%s/pg_restore\" %s %s --exit-on-error --verbose "
+		parallel_exec_prog(log_file_name, NULL,
+						   "%s \"%s/pg_restore\" %s %s --exit-on-error --verbose "
 						   "--binary-upgrade "
-						   "--dbname template1 \"%s\""),
+						   "--dbname template1 \"%s\"",
+						   PG_OPTIONS_UTILITY_MODE_VERSION(new_cluster.major_version),
 						   new_cluster.bindir,
 						   cluster_conn_opts(&new_cluster),
 						   create_opts,

@@ -24,13 +24,16 @@ generate_old_dump(void)
 	
 	/* run new pg_dumpall binary for globals */
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-			  "\"%s/pg_dumpall\" %s --globals-only --quote-all-identifiers "
-			  "--binary-upgrade %s -f %s"),
-			  new_cluster.bindir, cluster_conn_opts(&old_cluster),
+			  "%s \"%s/pg_dumpall\" %s --globals-only --quote-all-identifiers "
+			  "--binary-upgrade %s -f %s",
+			  PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
+			  new_cluster.bindir,
+			  cluster_conn_opts(&old_cluster),
 			  log_opts.verbose ? "--verbose" : "",
 			  GLOBALS_DUMP_FILE);
+
 	check_ok();
+
 
 	prep_status("Creating dump of database schemas\n");
 
@@ -53,15 +56,14 @@ generate_old_dump(void)
 		pg_log(PG_STATUS, "%s", old_db->db_name);
 		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
 		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
-
+		//pg_usleep(1000000 * 30);
 		parallel_exec_prog(log_file_name, NULL,
-						   psprintf(PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
-						   "\"%s/pg_dump\" %s --schema-only --quote-all-identifiers "
-						   "--binary-upgrade --format=custom %s --file=\"%s\" %s"),
+						   "%s \"%s/pg_dump\" %s --schema-only --quote-all-identifiers "
+						   "--binary-upgrade --format=custom %s --file=\"%s\" %s",
+						   PG_OPTIONS_UTILITY_MODE_VERSION(old_cluster.major_version),
 						   new_cluster.bindir, cluster_conn_opts(&old_cluster),
-						   log_opts.verbose ? "--verbose" : "",
+						   "--verbose", //log_opts.verbose ? "--verbose" : "",
 						   sql_file_name, escaped_connstr.data);
-
 		termPQExpBuffer(&escaped_connstr);
 	}
 

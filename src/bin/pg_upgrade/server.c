@@ -73,13 +73,14 @@ get_db_conn(ClusterInfo *cluster, const char *db_name)
 	}
 
 	appendPQExpBuffer(&conn_opts, " options=");
-
-	if  (GET_MAJOR_VERSION(cluster->major_version) < 1200) {
-	    appendConnStrVal(&conn_opts, "-c gp_session_role=utility");
-	} else {
-	   appendConnStrVal(&conn_opts, "-c gp_role=utility");
+	if (GET_MAJOR_VERSION(cluster->major_version) < 1200)
+	{
+		appendConnStrVal(&conn_opts, "-c gp_session_role=utility");
 	}
-
+	else
+	{
+		appendConnStrVal(&conn_opts, "-c gp_role=utility");
+	}
 	conn = PQconnectdb(conn_opts.data);
 	termPQExpBuffer(&conn_opts);
 	return conn;
@@ -191,19 +192,6 @@ get_major_server_version(ClusterInfo *cluster)
 	{
 		/* new style, e.g. 10.1 */
 		return v1 * 10000;
-	}
-}
-
-//// 6t7_FIXEM do a macro
-const char *PG_OPTIONS_UTILITY_MODE_VERSION(uint32 major_version)
-{
-	if (GET_MAJOR_VERSION(major_version) < 1200)
-	{
-		return " PGOPTIONS='-c gp_session_role=utility' ";
-	}
-	else
-	{
-		return " PGOPTIONS='-c gp_role=utility' ";
 	}
 }
 
