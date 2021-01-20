@@ -57,6 +57,7 @@ parseCommandLine(int argc, char *argv[])
 		{"socketdir", required_argument, NULL, 's'},
 		{"verbose", no_argument, NULL, 'v'},
 		{"clone", no_argument, NULL, 1},
+		{"mirror", no_argument, NULL, 'm'},
 
 		/* Greenplum specific parameters */
 		GREENPLUM_OPTIONS
@@ -108,7 +109,7 @@ parseCommandLine(int argc, char *argv[])
 	if (os_user_effective_id == 0)
 		pg_fatal("%s: cannot be run as root\n", os_info.progname);
 
-	while ((option = getopt_long(argc, argv, "d:D:b:B:cj:ko:O:p:P:rs:U:v",
+	while ((option = getopt_long(argc, argv, "d:D:b:B:cj:ko:O:p:P:rs:U:v:m",
 								 long_options, &optindex)) != -1)
 	{
 		switch (option)
@@ -214,6 +215,9 @@ parseCommandLine(int argc, char *argv[])
 
 			case 1:
 				user_opts.transfer_mode = TRANSFER_MODE_CLONE;
+				break;
+			case 'm':
+				user_opts.mirror = true;
 				break;
 
 			default:

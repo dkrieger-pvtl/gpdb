@@ -69,6 +69,7 @@ bool is_show_progress_mode(void);
 /* pg_upgrade_greenplum.c */
 void freeze_master_data(void);
 void reset_system_identifier(void);
+void reset_system_identifier_mirror(void);
 
 
 /* aotable.c */

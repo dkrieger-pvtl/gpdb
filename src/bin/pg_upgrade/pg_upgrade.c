@@ -227,8 +227,10 @@ main(int argc, char **argv)
 	check_ok();
 
 	/* For non-master segments, uniquify the system identifier. */
-	if (!is_greenplum_dispatcher_mode())
+	if (!is_greenplum_dispatcher_mode() && !user_opts.mirror)
 		reset_system_identifier();
+	if (!is_greenplum_dispatcher_mode() && user_opts.mirror)
+		reset_system_identifier_mirror();
 
 	prep_status("Sync data directory to disk");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
