@@ -165,7 +165,6 @@ check_vacuum_worked()
 
 	return 0
 }
-
 upgrade_qd()
 {
 	mkdir -p $1
@@ -189,24 +188,6 @@ upgrade_qd()
 	qddir=$1
 }
 
-upgrade_segment()
-{
-	mkdir -p $1
-
-	# Run pg_upgrade
-	pushd $1
-	time ${NEW_BINDIR}/pg_upgrade --mode=segment --old-bindir=${OLD_BINDIR} --old-datadir=$2 --new-bindir=${NEW_BINDIR} --new-datadir=$3 ${PGUPGRADE_OPTS}
-	if (( $? )) ; then
-		echo "ERROR: Failure encountered in upgrading node"
-		exit 1
-	fi
-	popd
-
-	# TODO: run check_vacuum_worked on each segment, too, once we have a good
-	# candidate catalog table (gp_segment_configuration doesn't exist on
-	# segments).
-}
-
 usage()
 {
 	local appname=`basename $0`
@@ -224,39 +205,11 @@ usage()
 	exit 0
 }
 
-# Ensures that each segment in the system has a unique DB system ID.
-check_distinct_system_ids()
-{
-	local datadirs[0]="${NEW_DATADIR}/qddir/demoDataDir-1/"
-
-	for i in 1 2 3; do
-		j=$(($i-1))
-		datadirs[$i]="${NEW_DATADIR}/dbfast$i/demoDataDir$j/"
-	done
-
-	local idfile="$temp_root/sysids"
-	for datadir in "${datadirs[@]}"; do
-		"${NEW_BINDIR}/pg_controldata" "$datadir" | grep 'Database system identifier'
-	done > "$idfile"
-
-	if [ "$(sort -u "$idfile" | wc -l)" -ne "4" ]; then
-		echo 'ERROR: segment identifiers are not all unique:'
-		cat "$idfile"
-		exit 1
-	fi
-}
-
 # Diffs the dump1.sql and dump2.sql files in the $temp_root, and exits
 # accordingly (exit code 1 if they differ, 0 otherwise).
 diff_and_exit() {
-	local args=
-	local pgopts=
-
-	if (( $smoketest )) ; then
-		# After a smoke test, we only have the master available to query.
-		args='-m'
-		pgopts='-c gp_role=utility'
-	fi
+	local args='-m'
+	local pgopts='-c gp_role=utility'
 
 	# Start the new cluster, dump it and stop it again when done. We need to bump
 	# the exports to the new cluster for starting it but reset back to the old
@@ -285,11 +238,6 @@ diff_and_exit() {
 		diff -wdu "$temp_root/dump1.sql" "$temp_root/dump2.sql" | tee regression.diffs
 		echo "Error: before and after dumps differ"
 		exit 1
-	fi
-
-	# Final sanity checks.
-	if (( ! $smoketest )); then
-		check_distinct_system_ids
 	fi
 
 	rm -f regression.diffs
@@ -409,18 +357,7 @@ main() {
 			exit 1
 		fi
 	fi
-	
-	# Ensure that the catalog is sane before attempting an upgrade. While there is
-	# (limited) catalog checking inside pg_upgrade, it won't catch all issues, and
-	# upgrading a faulty catalog won't work.
-	if (( $gpcheckcat )) ; then
-		${OLD_BINDIR}/gpcheckcat
-		if (( $? )) ; then
-			echo "ERROR: gpcheckcat reported catalog issues, fix before upgrading"
-			exit 1
-		fi
-	fi
-	
+
 	# yes, use pg_dumpall from NEW_BINDIR
 	if (( !$perf_test )) ; then
 		echo -n 'Dumping database schema before upgrade... '
@@ -469,53 +406,12 @@ main() {
 	upgrade_qd "${temp_root}/upgrade/qd" "${OLD_DATADIR}/qddir/demoDataDir-1/" "${NEW_DATADIR}/qddir/demoDataDir-1/"
 	print_delta_seconds $epoch_for_perf_start 'number_of_seconds_for_upgrade_qd'
 	
+	
+	echo "bengie: new mininal pg_upgrade"
+	
 	# If this is a minimal smoketest to ensure that we are handling all objects
 	# properly, then check that the upgraded schema is identical and exit.
-	if (( $smoketest )) ; then
-		diff_and_exit
-	fi
-	
-	# Upgrade all the segments and mirrors. In a production setup the segments
-	# would be upgraded first and then the mirrors once the segments are verified.
-	# In this scenario we can cut corners since we don't have any important data
-	# in the test cluster and we only concern ourselves with 100% success rate.
-	for i in 1 2 3
-	do
-		j=$(($i-1))
-		k=$(($i+1))
-	
-		# Replace the QE datadir with a copy of the QD datadir, in order to
-		# bootstrap the QE upgrade so that we don't need to dump/restore
-		mv "${NEW_DATADIR}/dbfast$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/"
-		cp -rp "${NEW_DATADIR}/qddir/demoDataDir-1/" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/"
-		# Retain the segment configuration
-		cp "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/postgresql.conf" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/postgresql.conf"
-		cp "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/pg_hba.conf" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/pg_hba.conf"
-		cp "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/postmaster.opts" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/postmaster.opts"
-		cp "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/postgresql.auto.conf" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/postgresql.auto.conf"
-		cp "${NEW_DATADIR}/dbfast$i/demoDataDir$j.old/internal.auto.conf" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/internal.auto.conf"
-		# Remove QD only files
-		rm -f "${NEW_DATADIR}/dbfast$i/demoDataDir$j/gpssh.conf"
-		# Upgrade the segment data files without dump/restore of the schema
-	
-		local epoch_for_perf_QEstart=`date +%s`
-		upgrade_segment "${temp_root}/upgrade/dbfast$i" "${OLD_DATADIR}/dbfast$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast$i/demoDataDir$j/"
-		print_delta_seconds $epoch_for_perf_QEstart 'number_of_seconds_for_upgrade_qe'
-	
-		if (( $mirrors )) ; then
-			epoch_for_perf_QEMstart=`date +%s`
-			upgrade_segment "${temp_root}/upgrade/dbfast_mirror$i" "${OLD_DATADIR}/dbfast_mirror$i/demoDataDir$j/" "${NEW_DATADIR}/dbfast_mirror$i/demoDataDir$j/"
-			print_delta_seconds $epoch_for_perf_QEMstart 'number_of_seconds_for_upgrade_qdm'
-		fi
-	done
-	
-	print_delta_seconds $epoch_for_perf_start 'number_of_seconds_for_upgrade'
-	
-	. ${NEW_BINDIR}/../greenplum_path.sh
-	
-	if (( !$perf_test )) ; then
-		diff_and_exit
-	fi
+	diff_and_exit
 
 	########################## END: The actual upgrade process
 }
