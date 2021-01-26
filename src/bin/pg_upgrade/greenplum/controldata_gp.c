@@ -36,36 +36,6 @@ reset_system_identifier(void)
 	check_ok();
 }
 
-void
-reset_system_identifier_mirror(void)
-{
-	struct timeval	tv;
-	uint64			sysidentifier;
-
-	prep_status("Setting database system identifier for new cluster");
-
-	/*
-	 * Use the same initialization process as BootStrapXLOG():
-	 *
-	 * - 32 bits of [current timestamp] seconds
-	 * - 20 bits of [current timestamp] microseconds
-	 * - 12 bits of PID
-	 *
-	 * This doesn't guarantee uniqueness, but if it's good enough for
-	 * gpinitsystem it should be good enough for us.
-	 */
-	gettimeofday(&tv, NULL);
-	sysidentifier = ((uint64) tv.tv_sec) << 32;
-	sysidentifier |= ((uint64) tv.tv_usec) << 12;
-	sysidentifier |= getpid() & 0xFFF;
-
-	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  "\"%s/pg_resetwal\" --binary-upgrade --system-identifier --mirror" UINT64_FORMAT " \"%s\"",
-			  new_cluster.bindir, sysidentifier, new_cluster.pgdata);
-
-	check_ok();
-}
-
 /*
  * Greenplum upgrade involves copying the MASTER_DATA_DIRECTORY to
  * each primary segment. We need to freeze the master data *after* the master

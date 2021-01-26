@@ -86,7 +86,6 @@ static void GuessControlValues(void);
 static void PrintControlValues(bool guessed);
 static void PrintNewControlValues(void);
 static void RewriteControlFile(void);
-static void RewriteControlFileMirror(void);
 static void FindEndOfXLOG(void);
 static void KillExistingXLOG(void);
 static void KillExistingArchiveStatus(void);
@@ -125,14 +124,12 @@ main(int argc, char *argv[])
 		{"binary-upgrade", no_argument, NULL, 1000},
 		{"system-identifier", required_argument, NULL, 1001},
 		{"next-gxid", required_argument, NULL, 1002},
-		{"mirror", no_argument, NULL, 1003},
 		{NULL, 0, NULL, 0}
 	};
 
 	int			c;
 	bool		force = false;
 	bool		binary_upgrade = false;
-	bool mirror_upgrade = false;
 	bool		noupdate = false;
 	MultiXactId set_oldestmxid = 0;
 	char	   *endptr;
@@ -394,9 +391,6 @@ main(int argc, char *argv[])
 				break;
 
 			case 1002: /* --next-gxid */
-				mirror_upgrade = true;
-				break;
-			case 1003: /* --next-gxid */
 				set_gxid = strtoul(optarg, &endptr, 0);
 				if (endptr == optarg || *endptr != '\0')
 				{
@@ -644,10 +638,7 @@ main(int argc, char *argv[])
 	/*
 	 * Else, do the dirty deed.
 	 */
-	if (mirror_upgrade())
-		RewriteControlFileMirror();
-	else
-		RewriteControlFile();
+	RewriteControlFile();
 	KillExistingXLOG();
 	KillExistingArchiveStatus();
 	WriteEmptyXLOG();
@@ -1125,44 +1116,6 @@ RewriteControlFile(void)
 	ControlFile.checkPointCopy.time = (pg_time_t) time(NULL);
 
 	ControlFile.state = DB_SHUTDOWNED;
-	ControlFile.time = (pg_time_t) time(NULL);
-	ControlFile.checkPoint = ControlFile.checkPointCopy.redo;
-	ControlFile.minRecoveryPoint = 0;
-	ControlFile.minRecoveryPointTLI = 0;
-	ControlFile.backupStartPoint = 0;
-	ControlFile.backupEndPoint = 0;
-	ControlFile.backupEndRequired = false;
-
-	/*
-	 * Force the defaults for max_* settings. The values don't really matter
-	 * as long as wal_level='minimal'; the postmaster will reset these fields
-	 * anyway at startup.
-	 */
-	ControlFile.wal_level = WAL_LEVEL_MINIMAL;
-	ControlFile.wal_log_hints = false;
-	ControlFile.track_commit_timestamp = false;
-	ControlFile.MaxConnections = 100;
-	ControlFile.max_wal_senders = 10;
-	ControlFile.max_worker_processes = 8;
-	ControlFile.max_prepared_xacts = 0;
-	ControlFile.max_locks_per_xact = 64;
-
-	/* The control file gets flushed here. */
-	update_controlfile(".", &ControlFile, true);
-}
-
-static void
-RewriteControlFileMirror(void)
-{
-	/*
-	 * Adjust fields as needed to force an empty XLOG starting at
-	 * newXlogSegNo.
-	 */
-	XLogSegNoOffsetToRecPtr(newXlogSegNo, SizeOfXLogLongPHD, WalSegSz,
-							ControlFile.checkPointCopy.redo);
-	ControlFile.checkPointCopy.time = (pg_time_t) time(NULL);
-
-	ControlFile.state = DB_SHUTDOWNED_IN_RECOVERY;
 	ControlFile.time = (pg_time_t) time(NULL);
 	ControlFile.checkPoint = ControlFile.checkPointCopy.redo;
 	ControlFile.minRecoveryPoint = 0;
