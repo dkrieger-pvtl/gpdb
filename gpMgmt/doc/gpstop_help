@@ -11,7 +11,7 @@ gpstop [-d <coordinator_data_directory>] [-B <parallel_processes>]
        [-M smart | fast | immediate] [-t <timeout_seconds>]
        [-r] [-y] [-a] [-l <logfile_directory>] [-v | -q]
 
-gpstop -m [-d <coordinator_data_directory>] [-y] [-l <logfile_directory>]
+gpstop [-m | -c] [-d <coordinator_data_directory>] [-y] [-l <logfile_directory>]
        [-v | -q]
 
 gpstop -u [-d <coordinator_data_directory>] [-l <logfile_directory>] 
@@ -93,7 +93,7 @@ OPTIONS
  The directory to write the log file. Defaults to ~/gpAdminLogs.
 
 
--m
+-m | -c
 
  Optional. Shuts down a Greenplum coordinator instance that was 
  started in maintenance mode.
