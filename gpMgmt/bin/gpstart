@@ -759,6 +759,8 @@ class GpStart:
                          help=SUPPRESS_HELP)
         addTo.add_option('-m', '--master_only', dest="coordinator_only", action='store_true',
                          help='start coordinator instance only in maintenance mode')
+        addTo.add_option('-c', '--coordinator_only', dest="new_coordinator_only", action='store_true',
+                         help='start coordinator instance only in maintenance mode')
         addTo.add_option('-y', '--no_standby', dest="start_standby", action='store_false', default=True,
                          help='do not start coordinator standby server')
         addTo.add_option('-B', '--parallel', type="int", default=gp.DEFAULT_GPSTART_NUM_WORKERS, metavar="<parallel_processes>",
@@ -799,7 +801,7 @@ class GpStart:
                        coordinator_datadir=options.coordinatorDataDirectory,
                        parallel=options.parallel,
                        quiet=options.quiet,
-                       coordinatoronly=options.coordinator_only,
+                       coordinatoronly=options.new_coordinator_only or options.coordinator_only,
                        interactive=options.interactive,
                        timeout=options.timeout,
                        wrapper=options.wrapper,
