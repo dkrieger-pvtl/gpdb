@@ -26,8 +26,9 @@ generate_old_dump(void)
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  PG_OPTIONS_UTILITY_MODE
 			  "\"%s/pg_dumpall\" %s --globals-only --quote-all-identifiers "
-			  "--binary-upgrade %s -f %s",
+			  "--binary-upgrade --binary-upgrade-version %d %s -f %s",
 			  new_cluster.bindir, cluster_conn_opts(&old_cluster),
+			  old_cluster.major_version,
 			  log_opts.verbose ? "--verbose" : "",
 			  GLOBALS_DUMP_FILE);
 	check_ok();
@@ -57,8 +58,9 @@ generate_old_dump(void)
 		parallel_exec_prog(log_file_name, NULL,
 						   PG_OPTIONS_UTILITY_MODE
 						   "\"%s/pg_dump\" %s --schema-only --quote-all-identifiers "
-						   "--binary-upgrade --format=custom %s --file=\"%s\" %s",
+						   "--binary-upgrade --binary_upgrade_version %d--format=custom %s --file=\"%s\" %s",
 						   new_cluster.bindir, cluster_conn_opts(&old_cluster),
+						   old_cluster.major_version,
 						   log_opts.verbose ? "--verbose" : "",
 						   sql_file_name, escaped_connstr.data);
 

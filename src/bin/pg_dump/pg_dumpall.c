@@ -76,6 +76,7 @@ static int	resource_queues = 0;
 static int	resource_groups = 0;
 
 static int	binary_upgrade = 0;
+static int	binary_upgrade_version = 0;
 static int	column_inserts = 0;
 static int	disable_dollar_quoting = 0;
 static int	disable_triggers = 0;
@@ -134,6 +135,7 @@ main(int argc, char *argv[])
 		 */
 		{"attribute-inserts", no_argument, &column_inserts, 1},
 		{"binary-upgrade", no_argument, &binary_upgrade, 1},
+		{"binary-upgrade-version", no_argument, &binary_upgrade_version, 0},
 		{"column-inserts", no_argument, &column_inserts, 1},
 		{"disable-dollar-quoting", no_argument, &disable_dollar_quoting, 1},
 		{"disable-triggers", no_argument, &disable_triggers, 1},
@@ -457,6 +459,8 @@ main(int argc, char *argv[])
 	/* Add long options to the pg_dump argument list */
 	if (binary_upgrade)
 		appendPQExpBufferStr(pgdumpopts, " --binary-upgrade");
+	if (binary_upgrade_version)
+		appendPQExpBufferStr(pgdumpopts, " --binary-upgrade-version", binary_upgrade_version);
 	if (column_inserts)
 		appendPQExpBufferStr(pgdumpopts, " --column-inserts");
 	if (disable_dollar_quoting)

@@ -135,6 +135,7 @@ typedef struct _dumpOptions
 	const char *username;
 
 	int			binary_upgrade;
+	int 		binary_upgrade_version;
 
 	/* various user-settable parameters */
 	bool		schemaOnly;

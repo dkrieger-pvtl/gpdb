@@ -242,7 +242,8 @@ ConnectDatabase(Archive *AHX,
 				const char *pgport,
 				const char *username,
 				trivalue prompt_password,
-				bool binary_upgrade)
+				bool binary_upgrade,
+				int binary_upgrade_version)
 {
 	ArchiveHandle *AH = (ArchiveHandle *) AHX;
 	char	   *password;
@@ -285,7 +286,8 @@ ConnectDatabase(Archive *AHX,
 		if (binary_upgrade)
 		{
 			keywords[6] = "options";
-			values[6] = "-c gp_role=utility";
+			values[6] =  (binary_upgrade_version < 120000) ?
+				"-c gp_session_role=utility" : "-c gp_role=utility"; 
 			keywords[7] = NULL;
 			values[7] = NULL;
 		}

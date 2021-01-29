@@ -564,6 +564,7 @@ main(int argc, char **argv)
 		{"disable-dollar-quoting", no_argument, &dopt.disable_dollar_quoting, 1},
 		{"disable-triggers", no_argument, &dopt.disable_triggers, 1},
 		{"binary-upgrade", no_argument, &dopt.binary_upgrade, 1},	/* not documented */
+		{"binary-upgrad-versione", no_argument, &dopt.binary_upgrade_version, 0},	/* not documented */
 		{"enable-row-security", no_argument, &dopt.enable_row_security, 1},
 		{"exclude-table-data", required_argument, NULL, 4},
 		{"extra-float-digits", required_argument, NULL, 8},
@@ -609,6 +610,9 @@ main(int argc, char **argv)
 	pg_logging_set_level(PG_LOG_WARNING);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_dump"));
 
+	printf("WAITING....");
+	pg_usleep(1000000*30);
+	
 	/*
 	 * Initialize what we need for parallel execution, especially for thread
 	 * support on Windows.
@@ -981,7 +985,7 @@ main(int argc, char **argv)
 	 * Open the database using the Archiver, so it knows about it. Errors mean
 	 * death.
 	 */
-	ConnectDatabase(fout, dopt.dbname, dopt.pghost, dopt.pgport, dopt.username, prompt_password, dopt.binary_upgrade);
+	ConnectDatabase(fout, dopt.dbname, dopt.pghost, dopt.pgport, dopt.username, prompt_password, dopt.binary_upgrade, dopt.binary_upgrade_version);
 	setup_connection(fout, dumpencoding, dumpsnapshot, use_role);
 
 	/*
