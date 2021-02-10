@@ -155,8 +155,19 @@ class GpStop(GpTestCase):
         self.assertEqual(mock_userinput.ask_yesno.call_count, 0)
 
     @patch('gpstop.userinput', return_value=Mock(spec=['ask_yesno']))
-    def test_all_option_coordinator_success_with_auto_accept(self, mock_userinput):
+    def test_all_short_option_coordinator_success_with_auto_accept(self, mock_userinput):
         sys.argv = ["gpstop", "-c", "-m", "-a"]
+        parser = self.subject.GpStop.createParser()
+        options, args = parser.parse_args()
+
+        mock_userinput.ask_yesno.return_value = True
+        gpstop = self.subject.GpStop.createProgram(options, args)
+        gpstop.run()
+        self.assertEqual(mock_userinput.ask_yesno.call_count, 0)
+
+    @patch('gpstop.userinput', return_value=Mock(spec=['ask_yesno']))
+    def test_all_options_coordinator_success_with_auto_accept(self, mock_userinput):
+        sys.argv = ["gpstop", "-c", "-m", "--coordinator_only", "--master_only", "-a"]
         parser = self.subject.GpStop.createParser()
         options, args = parser.parse_args()
 
