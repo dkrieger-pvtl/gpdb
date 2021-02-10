@@ -116,8 +116,24 @@ class GpStart(GpTestCase):
         self.subject.logger.info.assert_any_call('Coordinator Started...')
         self.assertEqual(return_code, 0)
 
-    def test_all_option_coordinator_success_without_auto_accept(self):
+    def test_all_short_option_coordinator_success_without_auto_accept(self):
         sys.argv = ["gpstart", "-c", "-m"]
+        self.mock_userinput.ask_yesno.return_value = True
+        self.subject.unix.PgPortIsActive.local.return_value = False
+
+        self.mock_os_path_exists.side_effect = os_exists_check
+
+        gpstart = self.setup_gpstart()
+        return_code = gpstart.run()
+
+        self.assertEqual(self.mock_userinput.ask_yesno.call_count, 1)
+        self.mock_userinput.ask_yesno.assert_called_once_with(None, '\nContinue with coordinator-only startup', 'N')
+        self.subject.logger.info.assert_any_call('Starting Coordinator instance in admin mode')
+        self.subject.logger.info.assert_any_call('Coordinator Started...')
+        self.assertEqual(return_code, 0)
+
+    def test_all_options_coordinator_success_without_auto_accept(self):
+        sys.argv = ["gpstart", "-c", "-m", '--master_only', '--coordinator_only']
         self.mock_userinput.ask_yesno.return_value = True
         self.subject.unix.PgPortIsActive.local.return_value = False
 
