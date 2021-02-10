@@ -51,8 +51,7 @@ def parseargs():
     parser.add_option('-h', '-?', '--help', action='help')
     parser.add_option('--verbose', action='store_true')
     parser.add_option('--skipvalidation', action='store_true')
-    parser.add_option('--masteronly', dest="coordinatoronly", action='store_true')
-    parser.add_option('--coordinatoronly', dest="newcoordinatoronly", action='store_true')
+    parser.add_option('--masteronly', '--coordinatoronly', dest="coordinatoronly", action='store_true')
     parser.add_option('--debug', action='store_true')
     parser.add_option('-c', '--change', type='string')
     parser.add_option('-r', '--remove', type='string')
@@ -112,7 +111,7 @@ def validate_mutual_options(options):
         log_and_raise("when changing a parameter on the coordinator only specify the --value not --mastervalue")
     if options.change and (options.value is not None and (options.primaryvalue is not None or options.mirrorvalue is not None)):
         log_and_raise("cannot use both value option and primaryvalue/mirrorvalue option")
-    if (options.coordinatoronly or options.newcoordinatoronly or options.coordinatorvalue is not None) and options.entry in SAMEVALUE_GUCS:
+    if (options.coordinatoronly or options.coordinatorvalue is not None) and options.entry in SAMEVALUE_GUCS:
         log_and_raise("%s value cannot be different on coordinator and segments" % options.entry)
     if options.value is not None and options.coordinatorvalue is None:
         options.coordinatorvalue = options.value
@@ -145,7 +144,7 @@ class Guc:
         # todo add code here...
         # be careful 128KB in postgresql.conf is translated into 32KB units
 
-        if self.name == "max_connections" and not (options.coordinatoronly or options.newcoordinatoronly):
+        if self.name == "max_connections" and (not options.coordinatoronly):
             try:
                 seg = int(newval)
                 coordinator = int(newcoordinatorval)
@@ -307,7 +306,7 @@ def do_change(options):
     failure = False
     try:
         # do the segments
-        if not (options.coordinatoronly or options.newcoordinatoronly):
+        if not options.coordinatoronly:
             if options.primaryvalue:
                 do_add_config_script(pool, [seg for seg in gp_array.getSegDbList() if seg.isSegmentPrimary()],
                                      options.primaryvalue, options)
