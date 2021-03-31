@@ -1,0 +1,3 @@
+dkrieger-a01.vmware.com|7005|/Users/dkrieger/workspace/gpdb-source/worktree-7X/gpAux/gpdemo/datadirs/dbfast_mirror1/demoDataDir0 dkrieger-a01.vmware.com|7005|/tmp/mm/m0
+dkrieger-a01.vmware.com|7006|/Users/dkrieger/workspace/gpdb-source/worktree-7X/gpAux/gpdemo/datadirs/dbfast_mirror2/demoDataDir1 dkrieger-a01.vmware.com|7006|/tmp/mm/m1
+dkrieger-a01.vmware.com|7007|/Users/dkrieger/workspace/gpdb-source/worktree-7X/gpAux/gpdemo/datadirs/dbfast_mirror3/demoDataDir2 dkrieger-a01.vmware.com|7007|/tmp/mm/m2
