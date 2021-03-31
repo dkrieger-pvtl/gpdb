@@ -311,13 +311,13 @@ try:
 
     enable_verbose_logging()
 
-    mainOptions = {"pidlockpath": GP_MOVEMIRRORS_LOCK_PATH}
-    sml = SimpleMainLock(mainOptions)
-    otherpid = sml.acquire()
-    if otherpid is not None:
-        logger.error("Lockfile %s indicates that an instance of %s is already running with PID %s" % (sml.ppath, "gpmovemirrors", otherpid))
-        logger.error("If this is not the case, remove the lockfile directory at %s" % (sml.ppath))
-        sys.exit(1)
+    # mainOptions = {"pidlockpath": GP_MOVEMIRRORS_LOCK_PATH}
+    # sml = SimpleMainLock(mainOptions)
+    # otherpid = sml.acquire()
+    # if otherpid is not None:
+    #     logger.error("Lockfile %s indicates that an instance of %s is already running with PID %s" % (sml.ppath, "gpmovemirrors", otherpid))
+    #     logger.error("If this is not the case, remove the lockfile directory at %s" % (sml.ppath))
+    #     sys.exit(1)
 
     logger.info("Invocation of gpmovemirrors mirrors")
     logOptionValues(options)
@@ -482,6 +482,6 @@ except KeyboardInterrupt:
 
     sys.exit('\nUser Interrupted')
 
-finally:
-    if sml is not None:
-        sml.release()
+# finally:
+#     if sml is not None:
+#         sml.release()
