@@ -145,7 +145,10 @@ class ConfExpSegCmd(Command):
                                        logfile=self.progressFile)
                     try:
                         logger.info("Running pg_basebackup with progress output temporarily in %s" % self.progressFile)
+                        logger.info("abc123__pgbasebackup_cmd: %s" % cmd.cmdStr)
                         cmd.run(validateAfter=True)
+                        logger.info("PASSED_abc123__pgbasebackup_cmd: %s" % cmd.cmdStr)
+                        print("cmd_PASSED_abc123_pgbasebackup_cmd: %s" % cmd.cmdStr, file=sys.stdout)
                         self.set_results(CommandResult(0, b'', b'', True, False))
                         if shouldDeleteProgressFile:
                             os.remove(self.progressFile)
@@ -418,9 +421,19 @@ try:
 
     pool.join()
 
+    completedCmds = pool.getCompletedItems()
+
+    cmdStrs = []
+    for item in completedCmds:
+        if not item.get_results().wasSuccessful:
+            cmdStrs.append("FAILED_abc123xxx: %s" % str(item.get_stdout()))
+        else:
+            cmdStrs.append("PASSED_abc123xxx_gpconfigurenewsegment: %s" % str(item.get_stdout()))
+    print("\n".join(cmdStrs), file=sys.stdout)
+
     if options.validationOnly:
         errors = []
-        for item in pool.getCompletedItems():
+        for item in completedCmds:
             if not item.get_results().wasSuccessful:
                 errors.append(str(item.get_results().stderr).replace("\n", " "))
 

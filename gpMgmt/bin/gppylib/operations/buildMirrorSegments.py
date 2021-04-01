@@ -536,6 +536,9 @@ class GpMirrorListToBuild:
             self.__pool.check_results()
 
         completedRecoveryCmds = list(set(self.__pool.getCompletedItems()) & set(cmds))
+        for cmd in completedRecoveryCmds:
+            print("abc456XXX: %s" % cmd.get_stdout())
+            self.__logger.info("\n\nabc456XXX: %s\n\n" % cmd.get_stdout())
 
         self.__pool.empty_completed_items()
 
