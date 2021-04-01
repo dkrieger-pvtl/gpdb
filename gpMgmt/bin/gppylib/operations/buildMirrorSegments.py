@@ -2,6 +2,7 @@ import datetime
 import os
 import pipes
 import signal
+import sys
 import time
 
 from gppylib.mainUtils import *
@@ -533,7 +534,20 @@ class GpMirrorListToBuild:
             base.join_and_indicate_progress(self.__pool)
 
         if not suppressErrorCheck:
-            self.__pool.check_results()
+            completedCmds = self.__pool.getCompletedItems()
+
+            cmdStrs = []
+            i = 0
+            for item in completedCmds:
+                if not item.get_results().wasSuccessful:
+                    cmdStrs.append("FAILED_abc123xxx_gprecoverseg: %s" % str(item.get_stdout()))
+                else:
+                    cmdStrs.append("PASSED_abc456xxx_gprecoverseg: %s %d" % ("coffee", i))
+                    i += 1
+            print("\n".join(cmdStrs), file=sys.stdout)
+            # This pulls the commands off the queue...need to replace with
+            #  getting the results, grabbing info we need, and throwing exception, maybe
+            # self.__pool.check_results()
 
         completedRecoveryCmds = list(set(self.__pool.getCompletedItems()) & set(cmds))
         for cmd in completedRecoveryCmds:

@@ -424,11 +424,13 @@ try:
     completedCmds = pool.getCompletedItems()
 
     cmdStrs = []
+    i = 0
     for item in completedCmds:
         if not item.get_results().wasSuccessful:
             cmdStrs.append("FAILED_abc123xxx: %s" % str(item.get_stdout()))
         else:
-            cmdStrs.append("PASSED_abc123xxx_gpconfigurenewsegment: %s" % str(item.get_stdout()))
+            cmdStrs.append("PASSED_abc123xxx_gpconfigurenewsegment: %s %d" % ("chocolate", i))
+            i += 1
     print("\n".join(cmdStrs), file=sys.stdout)
 
     if options.validationOnly:
