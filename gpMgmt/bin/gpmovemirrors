@@ -433,13 +433,18 @@ try:
     cmd = GpRecoverSeg("Running gprecoverseg", options=recoversegOptions)
     cmd.run(validateAfter=True)
 
-    cmdStrs = []
-    if not cmd.get_results().wasSuccessful:
-        cmdStrs.append("FAILED_abc789xxx: %s" % str(cmd.get_stdout()))
-    else:
-        cmdStrs.append("PASSED_abc789xxx_gpmovemirrors: %s" % "pizza")
-    print("\n".join(cmdStrs), file=sys.stdout)
+    gprecoverseg_lines = []
+    for line in cmd.get_stdout_lines():
+        if line.startswith("PASSED_abc456xxx_gprecoverseg"):
+            gprecoverseg_lines.append(line)
 
+    # if not cmd.get_results().wasSuccessful:
+    #     cmdStrs.append("FAILED_abc789xxx: %s" % str(cmd.get_stdout()))
+    # else:
+    #     cmdStrs.append("PASSED_abc789xxx_gpmovemirrors: %s" % str(cmd.get_stdout()))
+    print("START_abc789")
+    print("\n".join(gprecoverseg_lines), file=sys.stdout)
+    print("END_abc789")
 
     """ Delete old mirror directories. """
     if numberOfWorkers > 0:
