@@ -1,0 +1,46 @@
+#
+# 1) modify COORDINATOR_HOSTNAME to match yours
+# 2). hostname > hostfile
+# 2'). mkdir -p all the data directories
+# 3). gpinitsystem -c clusterConfig_centos
+# 4). export COORDINATOR_DATA_DIRECTORY=/home/gpadmin/cluster/datadirs/qddir/demoDataDir-1
+# 5).    export PGPORT=7000
+
+# This file must exist in the same directory that you execute gpinitsystem in
+MACHINE_LIST_FILE=/home/gpadmin/cluster/hostfile
+
+# This names the data directories for the Segment Instances and the Entry Postmaster
+SEG_PREFIX=demoDataDir
+
+# This is the port at which to contact the resulting Greenplum database, e.g.
+#   psql -p $PORT_BASE -d template1
+PORT_BASE=7002
+
+# Array of data locations for each hosts Segment Instances, the number of directories in this array will
+# set the number of segment instances per host
+declare -a DATA_DIRECTORY=(/home/gpadmin/cluster/datadirs/dbfast1 /home/gpadmin/cluster/datadirs/dbfast2 /home/gpadmin/cluster/datadirs/dbfast3)
+
+# Name of host on which to setup the QD
+COORDINATOR_HOSTNAME=ip-172-31-26-154.us-west-1.compute.internal
+
+# Name of directory on that host in which to setup the QD
+COORDINATOR_DIRECTORY=/home/gpadmin/cluster/datadirs/qddir
+
+COORDINATOR_PORT=7000
+
+# Shell to use to execute commands on all hosts
+TRUSTED_SHELL=ssh
+
+ENCODING=UNICODE
+
+# Array of mirror data locations for each hosts Segment Instances, the number of directories in this array will
+# set the number of segment instances per host
+declare -a MIRROR_DATA_DIRECTORY=(/home/gpadmin/cluster/datadirs/dbfast_mirror1 /home/gpadmin/cluster/datadirs/dbfast_mirror2 /home/gpadmin/cluster/datadirs/dbfast_mirror3)
+
+MIRROR_PORT_BASE=7005
+
+# Keep max_connection settings to reasonable values for
+# installcheck good execution.
+
+DEFAULT_QD_MAX_CONNECT=150
+QE_CONNECT_FACTOR=5
