@@ -494,7 +494,7 @@ else
 	(cd $(INSTLOC)/bin/ && $(TAR) cf - $(CLIENTS_FILESET_BIN)) | (cd $(CLIENTSINSTLOC_BIN)/ && $(TAR) xpf -)$(check_pipe_for_errors)
 	mkdir -p $(CLIENTSINSTLOC_BINEXT)
 	# py3dep attempt to eliminate pyyaml, psutil and pygresql from install
-	#(cd $(GPMGMT)/bin/ext/ && $(TAR) cf - $(CLIENTS_FILESET_BINEXT)) | (cd $(CLIENTSINSTLOC_BINEXT)/ && $(TAR) xpf -)$(check_pipe_for_errors)
+	(cd $(GPMGMT)/bin/ext/ && $(TAR) cf - $(CLIENTS_FILESET_BINEXT)) | (cd $(CLIENTSINSTLOC_BINEXT)/ && $(TAR) xpf -)$(check_pipe_for_errors)
 ifneq "$(PYTHONHOME)" ""
 	mkdir -p $(CLIENTSINSTLOC_EXT)/python
 	(cd $(PYTHONHOME) && $(TAR) cf - $(BLD_PYTHON_FILESET)) | (cd $(CLIENTSINSTLOC_EXT)/python/ && $(TAR) xpf -)$(check_pipe_for_errors)
@@ -618,7 +618,7 @@ mgmtcopy :
 	#Setup /lib/python contents
 	cp -rp $(GPMGMT)/bin/gppylib $(INSTLOC)/lib/python
 	# py3dep this seems to be what copies our extensions here...do not vendor
-	#cp -rp $(GPMGMT)/bin/ext/* $(INSTLOC)/lib/python
+	cp -rp $(GPMGMT)/bin/ext/* $(INSTLOC)/lib/python
 	cp -rp $(GPMGMT)/bin $(INSTLOC)
 	cp -rp $(GPMGMT)/sbin/* $(INSTLOC)/sbin/.
 	if [ ! -d ${INSTLOC}/docs ] ; then mkdir ${INSTLOC}/docs ; fi
