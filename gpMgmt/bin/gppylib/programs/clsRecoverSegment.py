@@ -286,9 +286,6 @@ class GpRecoverSegmentProgram:
 
             peerForFailedSegmentDbId = peerForFailedSegment.getSegmentDbId()
 
-            if failedSegment.unreachable:
-                continue
-
             segs.append(GpMirrorToBuild(failedSegment, peerForFailedSegment, failoverSegments[index],
                                         self.__options.forceFullResynchronization))
 
@@ -387,9 +384,6 @@ class GpRecoverSegmentProgram:
                 failoverSegment.setSegmentAddress(newRecoverAddress)
                 port = portAssigner.findAndReservePort(newRecoverHost, newRecoverAddress)
                 failoverSegment.setSegmentPort(port)
-
-            if failedSegment.unreachable:
-                continue
 
             segs.append(GpMirrorToBuild(failedSegment, liveSegment, failoverSegment, forceFull))
 
