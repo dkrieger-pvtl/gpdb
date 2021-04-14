@@ -59,6 +59,12 @@ gDatabaseFiles = [
 #
 
 class GpMirrorToBuild:
+    # failedSegment = segment that actually failed
+
+    # liveSegment = segment to recover "from" (in order to restore the failed segment)
+
+    # failoverSegment = segment to recover "to"
+
     def __init__(self, failedSegment, liveSegment, failoverSegment, forceFullSynchronization, logger=logger):
         checkNotNone("liveSegment", liveSegment)
         checkNotNone("forceFullSynchronization", forceFullSynchronization)
@@ -75,6 +81,10 @@ class GpMirrorToBuild:
         if not liveSegment.isSegmentUp():
             raise ExceptionNoStackTraceNeeded(
                 "Primary segment is not up for content %s" % liveSegment.getSegmentContentId())
+        if liveSegment.unreachable:
+            raise ExceptionNoStackTraceNeeded(
+                "The recovery source segment %s (content %s) is unreachable." % (liveSegment.getSegmentHostName(),
+                                                                              liveSegment.getSegmentContentId()))
 
         if failedSegment is not None:
             if failedSegment.getSegmentContentId() != liveSegment.getSegmentContentId():
@@ -95,6 +105,10 @@ class GpMirrorToBuild:
                 raise ExceptionNoStackTraceNeeded("For content %d, the dbid values are the same.  "
                                                   "A segment may not be built from itself"
                                                   % liveSegment.getSegmentDbId())
+            if failoverSegment.unreachable:
+                raise ExceptionNoStackTraceNeeded(
+                    "The recovery target segment %s (content %s) is unreachable." % (failoverSegment.getSegmentHostName(),
+                                                                                     failoverSegment.getSegmentContentId()))
 
         if failedSegment is not None and failoverSegment is not None:
             # for now, we require the code to have produced this -- even when moving the segment to another

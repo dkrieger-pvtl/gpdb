@@ -214,7 +214,12 @@ class GpRecoverSegmentProgram:
             for lineno, line in line_reader(f):
                 rows.append(self._getParsedRow(filename, lineno, line))
 
-        allAddresses = [row["newAddress"] for row in rows if "newAddress" in row]
+        # caution: "newAddress" here is not necessarily a new host to be added; it is simply
+        # the segment address to recover to.  It could be a new or existing host.
+        target_recovery_hosts = [row["newAddress"] for row in rows if "newAddress" in row]
+        unreachable_hosts = get_unreachable_segment_hosts(target_recovery_hosts, len(target_recovery_hosts))
+        if unreachable_hosts:
+            raise ExceptionNoStackTraceNeeded("Cannot recover according to config file. The recovery target host %s is unreachable." % (' '.join(map(str, target_recovery_hosts))))
 
         failedSegments = []
         failoverSegments = []
@@ -253,6 +258,7 @@ class GpRecoverSegmentProgram:
                 failoverSegment = failedSegment
                 failedSegment = failoverSegment.copy()
 
+
                 address = row["newAddress"]
                 try:
                     port = int(row["newPort"])
@@ -266,6 +272,8 @@ class GpRecoverSegmentProgram:
                 hostName = address
 
                 # now update values in failover segment
+                # what to do?  If it's a new host, False.  If existing, keep it the same.
+                failoverSegment.unreachable = False
                 failoverSegment.setSegmentAddress(address)
                 failoverSegment.setSegmentHostName(hostName)
                 failoverSegment.setSegmentPort(port)
@@ -284,9 +292,6 @@ class GpRecoverSegmentProgram:
             peerForFailedSegment = peersForFailedSegments[index]
 
             peerForFailedSegmentDbId = peerForFailedSegment.getSegmentDbId()
-
-            if failedSegment.unreachable:
-                continue
 
             segs.append(GpMirrorToBuild(failedSegment, peerForFailedSegment, failoverSegments[index],
                                         self.__options.forceFullResynchronization))
@@ -365,6 +370,11 @@ class GpRecoverSegmentProgram:
                 # Save off the new host/address for this address.
                 recoverAddressMap[segAddress] = (destHostname, destAddress)
 
+            target_recovery_hosts = [destHostname for (destHostname, destAddress) in recoverAddressMap.values()]
+            unreachable_hosts = get_unreachable_segment_hosts(target_recovery_hosts, len(target_recovery_hosts))
+            if unreachable_hosts:
+                raise ExceptionNoStackTraceNeeded("Cannot recover. The recovery target host %s is unreachable." % (' '.join(map(str, unreachable_hosts))))
+
             for key in list(recoverAddressMap.keys()):
                 (newHostname, newAddress) = recoverAddressMap[key]
                 try:
@@ -397,13 +407,19 @@ class GpRecoverSegmentProgram:
                 # these two lines make it so that failoverSegment points to the object that is registered in gparray
                 failoverSegment = failedSegment
                 failedSegment = failoverSegment.copy()
+                failoverSegment.unreachable = False  # recover to a new host; it is reachable as checked above.
                 failoverSegment.setSegmentHostName(newRecoverHost)
                 failoverSegment.setSegmentAddress(newRecoverAddress)
                 port = portAssigner.findAndReservePort(newRecoverHost, newRecoverAddress)
                 failoverSegment.setSegmentPort(port)
-
-            if failedSegment.unreachable:
-                continue
+            else:
+                # we are recovering on an existing host("in place") and hence
+                # cannot recover if the failed segment is unreachable.
+                # This is equivalent to failoverSegment.unreachable that we should be doing here but
+                # due to how the code is factored failoverSegment is None here. It is set to failedSegment
+                # later down in the call chain.
+                if failedSegment.unreachable:
+                    continue
 
             segs.append(GpMirrorToBuild(failedSegment, liveSegment, failoverSegment, forceFull))
 
