@@ -1,7 +1,8 @@
 {% set CLI_BEHAVE_TESTS = [
                       {'name': 'gpmovemirrors',
                        'use_concourse_cluster': true,
-                       'additional_ccp_vars': 'number_of_nodes: 4'},
+                       'additional_ccp_vars': 'number_of_nodes: 5',
+                       'reserve_spare_host' : true},
                       {'name': 'gppkg',
                        'use_concourse_cluster': true},
                       {'name': 'analyzedb',
@@ -1974,6 +1975,24 @@ jobs:
             file: ccp_src/ci/tasks/gen_cluster.yml
             params:
               <<: *ccp_gen_cluster_default_params
+          {% if test.reserve_spare_host %}
+          - get: alpine-docker
+          - task: reserve_spare_host_doit
+            image: alpine-docker
+            config:
+              platform: linux
+              inputs:
+                - name: cluster_env_files
+              outputs:
+                - name: cluster_env_files
+              run:
+                path: sh
+                args:
+                  - -exc
+                  - |
+                    cp cluster_env_files/hostfile_init cluster_env_files/hostfile_init_orig
+                    head -$(( $(cat cluster_env_files/hostfile_init_orig | wc -l) - 1 )) cluster_env_files/hostfile_init_orig > cluster_env_files/hostfile_init
+          {% endif %}
           - task: gpinitsystem
             file: ccp_src/ci/tasks/gpinitsystem.yml
           - task: [[ test.name ]]_concourse_cluster_tests
