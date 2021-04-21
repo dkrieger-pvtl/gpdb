@@ -82,6 +82,11 @@ run:
         scp -qr "pip-cache-dir" $host:pip-cache-dir
     done < cluster_env_files/hostfile_all
 
+    # this allows gpadmin@sdw1 to use passwordless sudo
+    ssh centos@sdw1 "
+        sudo usermod -a -G google-sudoers gpadmin
+    "
+
     ssh -t mdw "
         source /home/gpadmin/gpdb_src/concourse/scripts/common.bash
         install_python_requirements_on_multi_host /home/gpadmin/gpdb_src/gpMgmt/requirements-dev.txt
