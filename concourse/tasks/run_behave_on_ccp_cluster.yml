@@ -62,6 +62,14 @@ run:
         '"
     done <cluster_env_files/etc_hostfile
 
+    # this allows passwordless sudo access on all machines
+    while read LINE; do
+        host=$(echo $LINE | awk '{ print $3 }')
+        ssh -n centos@$host "
+          sudo usermod -a -G google-sudoers gpadmin
+        "
+    done <cluster_env_files/etc_hostfile
+
     # start cluster back up
     ssh -n mdw "
         source /usr/local/greenplum-db-devel/greenplum_path.sh
