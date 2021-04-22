@@ -1,7 +1,7 @@
 {% set CLI_BEHAVE_TESTS = [
                       {'name': 'gpmovemirrors',
                        'use_concourse_cluster': true,
-                       'additional_ccp_vars': 'number_of_nodes: 5',
+                       'additional_ccp_vars': 'number_of_nodes: 7',
                        'reserve_spare_host' : true},
                       {'name': 'gppkg',
                        'use_concourse_cluster': true},
@@ -2145,7 +2145,7 @@ jobs:
                   - -exc
                   - |
                     cp cluster_env_files/hostfile_init cluster_env_files/hostfile_init_orig
-                    head -$(( $(cat cluster_env_files/hostfile_init_orig | wc -l) - 1 )) cluster_env_files/hostfile_init_orig > cluster_env_files/hostfile_init
+                    head -$(( $(cat cluster_env_files/hostfile_init_orig | wc -l) - 2 )) cluster_env_files/hostfile_init_orig > cluster_env_files/hostfile_init
           {% endif %}
           - task: gpinitsystem
             file: ccp_src/ci/tasks/gpinitsystem.yml
