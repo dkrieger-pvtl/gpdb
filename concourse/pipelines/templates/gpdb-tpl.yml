@@ -1,5 +1,5 @@
 {% set CLI_BEHAVE_TESTS = [
-                      {'name': 'gpmovemirrors',
+                      {'name': 'gprecoverseg_newhost',
                        'use_concourse_cluster': true,
                        'additional_ccp_vars': 'number_of_nodes: 7',
                        'reserve_spare_host' : true},
