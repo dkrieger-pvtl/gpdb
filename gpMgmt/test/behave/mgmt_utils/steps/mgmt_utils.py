@@ -1,4 +1,5 @@
 import codecs
+import copy
 import math
 import fnmatch
 import glob
@@ -9,6 +10,7 @@ import pipes
 import platform
 import shutil
 import socket
+import subprocess
 import tempfile
 import thread
 import time
@@ -153,6 +155,7 @@ def impl(context, num_primaries):
 
 
 @given('the user runs psql with "{psql_cmd}" against database "{dbname}"')
+@when('the user runs psql with "{psql_cmd}" against database "{dbname}"')
 @then('the user runs psql with "{psql_cmd}" against database "{dbname}"')
 def impl(context, dbname, psql_cmd):
     cmd = "psql -d %s %s" % (dbname, psql_cmd)
@@ -1040,6 +1043,156 @@ def impl(context, seg):
         context.mseg_dbid = context.mseg.getSegmentDbId()
         context.mseg_data_dir = context.mseg.getSegmentDataDirectory()
 
+# We simulate a physical cutting of the ethernet cable into "host" by adding
+# a blackhole route from each other node to it.
+@given('host "{isolate_host}" is disconnected from the cluster')
+def impl(context, isolate_host):
+    # subprocess.check_call(['ssh', host,
+    #                        'sudo /sbin/shutdown -h now'])
+
+    cmd = "cat /etc/hosts | grep {} | head -1 ".format(isolate_host)
+    cmd += "| awk '{print $1}'"
+    isolate_addr = subprocess.check_output(["bash", "-c", cmd])
+    isolate_addr = isolate_addr.strip()
+
+    hosts = GpArray.initFromCatalog(dbconn.DbURL()).getHostList()
+    for host in hosts:
+        if host == isolate_host:
+            continue
+        cmd = "sudo ip route add blackhole {}".format(isolate_addr)
+        subprocess.check_call(["ssh", host, cmd])
+
+
+@given('the cluster configuration is saved "{when}"')
+@then('the cluster configuration is saved "{when}"')
+def impl(context, when):
+    if not hasattr(context, 'saved_array'):
+        context.saved_array = {}
+    context.saved_array[when] = GpArray.initFromCatalog(dbconn.DbURL())
+
+
+# This test explicitly compares the actual before and after gparrays with what we
+# expect.  While such a test is not extensible, it is easy to debug and does exactly
+# what we need to right now.  Besides, the calling Scenario requires a specific cluster
+# setup.  Note the before cluster is a standard CCP 4-host cluster(mdw/sdw1-3) and the
+# after cluster is a result of a call to `gprecoverseg -p` after sdw1 has been shutdown.
+# This causes the sdw1 primaries to fail over to the mirrors, at which point there are 4
+# contents in the cluster with no mirrors.  The `gprecoverseg -p` call creates those 4
+# mirrors on sdw4.  It does not leave the cluster in its original state.
+@then('the "{before}" and "{after}" cluster configuration matches with the expected for gprecoverseg newhost')
+def impl(context, before, after):
+    if not hasattr(context,'saved_array') or (before not in context.saved_array) or \
+        (after not in context.saved_array):
+        raise Exception("before_array or after_array not saved prior to call")
+
+    with tempfile.NamedTemporaryFile() as f:
+        f.write('''1|-1|p|p|n|u|mdw|mdw|5432|/data/gpdata/master/gpseg-1
+12|4|m|m|s|u|sdw1|sdw1|21000|/data/gpdata/mirror/gpseg4
+2|0|p|p|s|u|sdw1|sdw1|20000|/data/gpdata/primary/gpseg0
+13|5|m|m|s|u|sdw1|sdw1|21001|/data/gpdata/mirror/gpseg5
+3|1|p|p|s|u|sdw1|sdw1|20001|/data/gpdata/primary/gpseg1
+5|3|p|p|s|u|sdw2|sdw2|20001|/data/gpdata/primary/gpseg3
+9|1|m|m|s|u|sdw2|sdw2|21001|/data/gpdata/mirror/gpseg1
+4|2|p|p|s|u|sdw2|sdw2|20000|/data/gpdata/primary/gpseg2
+8|0|m|m|s|u|sdw2|sdw2|21000|/data/gpdata/mirror/gpseg0
+10|2|m|m|s|u|sdw3|sdw3|21000|/data/gpdata/mirror/gpseg2
+6|4|p|p|s|u|sdw3|sdw3|20000|/data/gpdata/primary/gpseg4
+11|3|m|m|s|u|sdw3|sdw3|21001|/data/gpdata/mirror/gpseg3
+7|5|p|p|s|u|sdw3|sdw3|20001|/data/gpdata/primary/gpseg5
+''')
+        f.flush()
+        expected_before_gparray = GpArray.initFromFile(f.name)
+
+    with tempfile.NamedTemporaryFile() as f:
+        f.write('''1|-1|p|p|n|u|mdw|mdw|5432|/data/gpdata/master/gpseg-1
+9|1|p|m|s|u|sdw2|sdw2|21001|/data/gpdata/mirror/gpseg1
+8|0|p|m|s|u|sdw2|sdw2|21000|/data/gpdata/mirror/gpseg0
+4|2|p|p|s|u|sdw2|sdw2|20000|/data/gpdata/primary/gpseg2
+5|3|p|p|s|u|sdw2|sdw2|20001|/data/gpdata/primary/gpseg3
+7|5|p|p|s|u|sdw3|sdw3|20001|/data/gpdata/primary/gpseg5
+11|3|m|m|s|u|sdw3|sdw3|21001|/data/gpdata/mirror/gpseg3
+6|4|p|p|s|u|sdw3|sdw3|20000|/data/gpdata/primary/gpseg4
+10|2|m|m|s|u|sdw3|sdw3|21000|/data/gpdata/mirror/gpseg2
+3|1|m|p|s|u|sdw4|sdw4|20001|/data/gpdata/primary/gpseg1
+2|0|m|p|s|u|sdw4|sdw4|20000|/data/gpdata/primary/gpseg0
+12|4|m|m|s|u|sdw4|sdw4|20002|/data/gpdata/mirror/gpseg4
+13|5|m|m|s|u|sdw4|sdw4|20003|/data/gpdata/mirror/gpseg5
+''')
+        f.flush()
+        expected_after_gparray = GpArray.initFromFile(f.name)
+
+    compare_gparray_with_recovered_host(context.saved_array[before], context.saved_array[after], expected_before_gparray, expected_after_gparray)
+
+def compare_gparray_with_recovered_host(before_gparray, after_gparray, expected_before_gparray, expected_after_gparray):
+
+    def _sortedSegs(gparray):
+        segs_by_host = GpArray.getSegmentsByHostName(gparray.getSegDbList())
+        for host in segs_by_host:
+            segs_by_host[host].sort()
+        return segs_by_host
+
+    before_segs = _sortedSegs(before_gparray)
+    expected_before_segs = _sortedSegs(expected_before_gparray)
+
+    after_segs = _sortedSegs(after_gparray)
+    expected_after_segs  = _sortedSegs(expected_after_gparray)
+
+    if before_segs != expected_before_segs or after_segs != expected_after_segs:
+        msg = "MISMATCH\n\nactual_before:\n{}\n\nexpected_before:\n{}\n\nactual_after:\n{}\n\nexpected_after:\n{}\n".format(
+            before_segs, expected_before_segs, after_segs, expected_after_segs)
+        raise Exception(msg)
+
+# ensure two gparray objects are equivalent once the host mappings in "switched_hosts" are applied
+# dbid | content | role | pref_role | mode | status | port  | hostname | address |           datadir
+# ------+---------+------+----------------+------+--------+-------+----------+---------+-----------------------------
+# 2    |       0 | p    | p         | s    | u      | 20000 | sdw1     | sdw1    | /data/gpdata/primary/gpseg0
+# 3    |       1 | p    | p         | s    | u      | 20001 | sdw1     | sdw1    | /data/gpdata/primary/gpseg1
+# 12   |       4 | m    | m         | s    | u      | 21000 | sdw1     | sdw1    | /data/gpdata/mirror/gpseg4
+# 13   |       5 | m    | m         | s    | u      | 21001 | sdw1     | sdw1    | /data/gpdata/mirror/gpseg5
+
+# 2    |       0 | m    | p         | s    | u      | 20000 | sdw4     | sdw4    | /data/gpdata/primary/gpseg0
+# 3    |       1 | m    | p         | s    | u      | 20001 | sdw4     | sdw4    | /data/gpdata/primary/gpseg1
+# 12   |       4 | m    | m         | s    | u      | 20002 | sdw4     | sdw4    | /data/gpdata/mirror/gpseg4
+# 13   |       5 | m    | m         | s    | u      | 20003 | sdw4     | sdw4    | /data/gpdata/mirror/gpseg5
+
+# by hand way....
+# def compare_gparray_with_recovered_host(orig_gparray, swapped_gparray, switched_hosts):
+#     class GpArraySwapped:
+#         def __init__(self, gparray, switched_hosts):
+#             self.gparray = copy.deepcopy(gparray)
+#             self.switched_hosts = switched_hosts
+#             self.swapped_segs = self._swap_to_before()
+#
+#         def _swap_to_before(self):
+#             segs_by_host = GpArray.getSegmentsByHostName(self.gparray.getSegDbList())
+#             for before_host in self.switched_hosts:
+#                 after_host = self.switched_hosts[before_host]
+#                 if after_host not in segs_by_host:
+#                     raise Exception("MISMATCH\ngparray:\n%s\ndoes not contain new host %s" % (self.gparray, after_host))
+#                 after_segs = []
+#                 for seg in segs_by_host[after_host]:
+#                     after_seg = seg.copy()
+#                     after_seg.setSegmentHostName(before_host)
+#                     after_seg.setSegmentAddress(before_host)
+#                     if after_seg.getSegmentRole() != after_seg.getSegmentPreferredRole():
+#                         after_seg.setSegmentRole(after_seg.getSegmentPreferredRole())
+#                     after_segs.append(after_seg)
+#                 segs_by_host[before_host] = after_segs
+#                 del segs_by_host[after_host]
+#             return segs_by_host
+#
+#     before_segs_by_host = GpArray.getSegmentsByHostName(orig_gparray.getSegDbList())
+#     after_segs_by_host = GpArraySwapped(swapped_gparray, switched_hosts).swapped_segs
+#
+#     for seg in before_segs_by_host:
+#         before_segs_by_host[seg].sort()
+#     for seg in after_segs_by_host:
+#         after_segs_by_host[seg].sort()
+#
+#     if before_segs_by_host != after_segs_by_host:
+#         msg = "MISMATCH\n\norig gparray:\n{}\n\nunmmodified swapped gparray:\n{}\n\nswapped gparray:\n{}\n".format(
+#             before_segs_by_host, GpArray.getSegmentsByHostName(swapped_gparray.getSegDbList()), after_segs_by_host)
+#         raise Exception(msg)
 
 @when('we run a sample background script to generate a pid on "{seg}" segment')
 def impl(context, seg):
