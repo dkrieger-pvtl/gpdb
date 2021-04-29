@@ -19,6 +19,7 @@ anchors:
   action: create
   delete_on_failure: true
   generate_random_name: true
+  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
   terraform_source: ccp_src/google/
 
 - &ccp_default_vars
@@ -27,6 +28,7 @@ anchors:
 
 - &destroy_common
   action: destroy
+  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
   terraform_source: ccp_src/google/
   vars:
     aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
@@ -482,6 +484,15 @@ resources:
 
 - name: terraform_2
   <<: *terraform_cluster
+
+- name: terraform.d
+  source:
+    access_key_id: ((bucket-access-key-id))
+    bucket: ccp-terraform-provider-plugins
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
+    versioned_file: plugin-cache.tgz
+  type: s3
 
 - name: alpine-docker
   type: registry-image
@@ -1263,11 +1274,15 @@ jobs:
         passed: [compile_gpdb_clients_windows]
       - get: bin_gpdb
         resource: bin_gpdb_centos7_rc
+      - get: terraform.d
+        params:
+          unpack: true
   - put: terraform_windows
     params:
       action: create
       delete_on_failure: true
       generate_random_name: true
+      plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
       terraform_source: ccp_src/gpdb_windows_client_test/
   - task: run_tests
     file: gpdb_src/concourse/tasks/windows_remote_test.yml
@@ -1280,6 +1295,7 @@ jobs:
     put: terraform_windows
     params:
       action: destroy
+      plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
       env_name_file: terraform_windows/name
       terraform_source: ccp_src/gpdb_windows_client_test/
       vars:
@@ -1669,11 +1685,15 @@ jobs:
       trigger: true
     - get: ccp_src
     - get: ccp-image
+    - get: terraform.d
+      params:
+        unpack: true
   - put: terraform
     params:
       action: create
       delete_on_failure: true
       generate_random_name: true
+      plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
       terraform_source: ccp_src/google/
       vars:
         PLATFORM: centos7
@@ -1854,6 +1874,9 @@ jobs:
         passed: [gate_resource_groups_start]
         resource: binary_swap_gpdb_centos6
         trigger: [[ test_trigger ]]
+      - get: terraform.d
+        params:
+          unpack: true
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1893,6 +1916,9 @@ jobs:
         passed: [gate_resource_groups_start]
         resource: binary_swap_gpdb_centos6
         trigger: [[ test_trigger ]]
+      - get: terraform.d
+        params:
+          unpack: true
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2049,7 +2075,7 @@ jobs:
           params:
             submodules:
               - gpMgmt/bin/pythonSrc/ext
-          passed: [gate_cli_start]
+          #passed: [gate_cli_start]
         - get: gpdb6-centos6-test
     - in_parallel:
         steps:
@@ -2057,10 +2083,13 @@ jobs:
         - do:
           - get: gpdb_binary
             resource: bin_gpdb_centos6
-            passed: [gate_cli_start]
+            #passed: [gate_cli_start]
             trigger: [[ test_trigger ]]
           - get: ccp_src
           - get: ccp-image
+          - get: terraform.d
+            params:
+              unpack: true
           - put: terraform
             params:
               <<: *ccp_default_params
@@ -2106,7 +2135,7 @@ jobs:
         - do:
           - get: bin_gpdb
             resource: bin_gpdb_centos6
-            passed: [gate_cli_start]
+            #passed: [gate_cli_start]
             trigger: [[ test_trigger ]]
           - task: [[ test.name ]]_demo_cluster_tests
             file: gpdb_src/concourse/tasks/behave_gpdb.yml
@@ -2134,6 +2163,9 @@ jobs:
             passed: [compile_gpdb_ubuntu18.04]
             trigger: [[ test_trigger ]]
           - get: ccp_src
+          - get: terraform.d
+            params:
+              unpack: true
           - put: terraform
             params:
               <<: *ccp_default_params
@@ -2192,6 +2224,9 @@ jobs:
       - get: ccp_src
       - get: ccp-image
       - get: alpine-docker
+      - get: terraform.d
+        params:
+          unpack: true
     - task: generate-ssh-keys
       image: alpine-docker
       config:
@@ -2328,6 +2363,9 @@ jobs:
       - get: icw_planner_centos6_dump
         passed: [icw_planner_centos6]
       - get: ccp_src
+      - get: terraform.d
+        params:
+          unpack: true
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2372,6 +2410,9 @@ jobs:
       - get: ccp-image
       - get: icw_planner_centos6_dump
         passed: [icw_planner_centos6]
+      - get: terraform.d
+        params:
+          unpack: true
   - put: terraform
     params:
       <<: *ccp_default_params
