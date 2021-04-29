@@ -329,9 +329,6 @@ class GpRecoverSegmentProgram:
         recoverHostMap = {}
         interfaceHostnameWarnings = []
 
-        # Check if the array is a "standard" array
-        (isStandardArray, _ignore) = gpArray.isStandardArray()
-
         recoverHostIdx = 0
 
         if self.__options.newRecoverHosts and len(self.__options.newRecoverHosts) > 0:
@@ -348,18 +345,6 @@ class GpRecoverSegmentProgram:
                         # per 1 failed host.
                         raise Exception('Not enough new recovery hosts given for recovery.')
                     recoverHostIdx += 1
-
-                if isStandardArray:
-                    # We have a standard array configuration, so we'll try to use the same
-                    # interface naming convention.  If this doesn't work, we'll correct it
-                    # below during ping failure
-                    segInterface = segAddress[segAddress.rfind('-'):]
-                    destAddress = recoverHostMap[segHostname] + segInterface
-                    destHostname = recoverHostMap[segHostname]
-                else:
-                    # Non standard configuration so we won't make assumptions on
-                    # naming.  Instead we'll use the hostname passed in for both
-                    # hostname and address and flag for warning later.
                     destAddress = recoverHostMap[segHostname]
                     destHostname = recoverHostMap[segHostname]
 
