@@ -215,6 +215,7 @@ class GpRecoverSegmentProgram:
             for lineno, line in line_reader(f):
                 rows.append(self._getParsedRow(filename, lineno, line))
 
+        # what is "newAddress"?
         target_recovery_hosts = [row["newAddress"] for row in rows if "newAddress" in row]
         unreachable_hosts = get_unreachable_segment_hosts(target_recovery_hosts, len(target_recovery_hosts))
         if unreachable_hosts:
