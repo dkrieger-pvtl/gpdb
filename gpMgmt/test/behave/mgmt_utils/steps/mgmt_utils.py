@@ -1213,6 +1213,14 @@ fi
 '''
     subprocess.check_output(["bash", "-c", cmd])
 
+    # hack...not sure how gptest gets created...somehow it does in the CCP
+    cmd = '''
+source /usr/local/greenplum-db-devel/greenplum_path.sh
+psql -d template1 -p 5432 -c "DROP DATABASE IF EXISTS gptest"
+psql -d template1 -p 5432 -c "CREATE DATABASE gptest"
+'''
+    subprocess.check_output(["bash", "-c", cmd])
+
 @given('the cluster configuration is saved "{when}"')
 @then('the cluster configuration is saved "{when}"')
 def impl(context, when):
