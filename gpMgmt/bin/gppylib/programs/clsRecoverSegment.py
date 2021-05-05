@@ -348,10 +348,9 @@ class GpRecoverSegmentProgram:
                         # per 1 failed host.
                         raise Exception('Not enough new recovery hosts given for recovery.')
                     recoverHostIdx += 1
-                    destAddress = recoverHostMap[segHostname]
-                    destHostname = recoverHostMap[segHostname]
 
-                # Save off the new host/address for this address.
+                destAddress = recoverHostMap[segHostname]
+                destHostname = recoverHostMap[segHostname]
                 recoverAddressMap[segAddress] = (destHostname, destAddress)
 
             target_recovery_hosts = list(zip(*recoverAddressMap.values())[0])
