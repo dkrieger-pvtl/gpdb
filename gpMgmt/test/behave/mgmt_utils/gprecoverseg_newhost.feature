@@ -13,7 +13,7 @@ Feature: gprecoverseg tests involving migrating to a new host
       And the cluster configuration is saved "before"
       And segment hosts "sdw1" are disconnected from the cluster and from the spare segment hosts "sdw5,sdw6"
       And the cluster configuration reflects the desired state "hostname='sdw1' and status='u'"
-      When the user runs "gprecoverseg -a -p sdw5"
+      When the user runs "gprecoverseg -a -F -p sdw5"
       Then gprecoverseg should return a return code of 0
       And the cluster configuration is saved "after_one"
       And the "before" and "after_one" cluster configuration matches with the expected for gprecoverseg newhost
@@ -33,7 +33,7 @@ Feature: gprecoverseg tests involving migrating to a new host
       And the cluster configuration is saved "before"
       And segment hosts "sdw1,sdw3" are disconnected from the cluster and from the spare segment hosts "sdw5,sdw6"
       And the cluster configuration reflects the desired state "(hostname='sdw1' or hostname='sdw3') and status='u'"
-      When the user runs "gprecoverseg -a -p sdw5,sdw6"
+      When the user runs "gprecoverseg -a -F -p sdw5,sdw6"
       Then gprecoverseg should return a return code of 0
       And the cluster configuration is saved "after_two"
       And the "before" and "after_two" cluster configuration matches with the expected for gprecoverseg newhost
