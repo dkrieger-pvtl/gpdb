@@ -1293,6 +1293,33 @@ def compare_gparray_with_recovered_host(before_gparray, after_gparray, expected_
             before_segs, expected_before_segs, after_segs, expected_after_segs)
         raise Exception(msg)
 
+@given('gprecoverseg_newhost test setups are done for "{test_case}" and "{recovery_file}"')
+def impl(context, test_case, recovery_file):
+    if test_case not in ["host", "config"]:
+        raise Exception("invalid test case type: %s" % test_case)
+    if test_case == "host":
+        return
+
+    # we do not expect the file to exist; if it does, use it
+    try:
+        with open(recovery_file, 'r') as f:
+            return
+    except IOError:
+        pass
+
+    if recovery_file == "/tmp/gprecoverseg_1.txt":
+        segment_mapping = '''
+sdw1|20000|/data/gpdata/primary/gpseg0 sdw5|20000|/data/gpdata/primary/gpseg0
+sdw1|20001|/data/gpdata/primary/gpseg1 sdw5|20001|/data/gpdata/primary/gpseg1
+sdw1|21000|/data/gpdata/mirror/gpseg6 sdw5|20002|/data/gpdata/mirror/gpseg6
+sdw1|21001|/data/gpdata/mirror/gpseg7 sdw5|20003|/data/gpdata/mirror/gpseg7
+'''
+    else:
+        raise Exception("bad file request: %s" % recovery_file)
+
+    with open(recovery_file, 'w') as f:
+        f.write(segment_mapping)
+        f.flush()
 
 @when('we run a sample background script to generate a pid on "{seg}" segment')
 def impl(context, seg):

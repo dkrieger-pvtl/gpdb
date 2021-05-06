@@ -4,16 +4,17 @@ Feature: gprecoverseg tests involving migrating to a new host
 ########################### @concourse_cluster tests ###########################
 # The @concourse_cluster tag denotes the scenario that requires a remote cluster
     @concourse_cluster
-    Scenario: gprecoverseg -p successfully fails over to a new host
+    Scenario Outline: gprecoverseg successfully fails over to a new host specifying <test_case>
       Given the database is running
       And all the segments are running
       And the segments are synchronized
       And the user runs gpconfig sets guc "wal_sender_timeout" with "15s"
       And the user runs "gpstop -air"
+      And gprecoverseg_newhost test setups are done for "<test_case>" and "<recovery_file>"
       And the cluster configuration is saved "before"
       And segment hosts "sdw1" are disconnected from the cluster and from the spare segment hosts "sdw5,sdw6"
       And the cluster configuration reflects the desired state "hostname='sdw1' and status='u'"
-      When the user runs "gprecoverseg -a -F -p sdw5"
+      When the user runs <gprecoverseg_cmd>
       Then gprecoverseg should return a return code of 0
       And the cluster configuration is saved "after_one"
       And the "before" and "after_one" cluster configuration matches with the expected for gprecoverseg newhost
@@ -22,9 +23,13 @@ Feature: gprecoverseg tests involving migrating to a new host
       And the original cluster state is recreated to "sdw1"
       And the cluster configuration is saved "after_recreation"
       And the "before" and "after_recreation" cluster configuration matches with the expected for gprecoverseg newhost
+      Examples:
+      | test_case | gprecoverseg_cmd                                | recovery_file            |
+      |    host   | "gprecoverseg -a -F -p sdw5"                    | none                     |
+      |    config | "gprecoverseg -a -F -i /tmp/gprecoverseg_1.txt" | /tmp/gprecoverseg_1.txt  |
 
     @concourse_cluster
-    Scenario: gprecoverseg -p successfully fails over to multiple hosts
+    Scenario: gprecoverseg successfully fails over to multiple hosts using -Fp
       Given the database is running
       And all the segments are running
       And the segments are synchronized
