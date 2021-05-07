@@ -1303,9 +1303,9 @@ def compare_gparray_with_recovered_host(before_gparray, after_gparray, expected_
 
 @given('gprecoverseg_newhost test setups are done for "{test_case}" and "{recovery_file}"')
 def impl(context, test_case, recovery_file):
-    if test_case not in ["host", "config"]:
+    if test_case not in ['host_one', 'config_one', 'host_two', 'config_two']:
         raise Exception("invalid test case type: %s" % test_case)
-    if test_case == "host":
+    if test_case in ['host_one', 'host_two']:
         return
 
     # we do not expect the file to exist; if it does, use it
@@ -1321,6 +1321,17 @@ sdw1|20000|/data/gpdata/primary/gpseg0 sdw5|20000|/data/gpdata/primary/gpseg0
 sdw1|20001|/data/gpdata/primary/gpseg1 sdw5|20001|/data/gpdata/primary/gpseg1
 sdw1|21000|/data/gpdata/mirror/gpseg6 sdw5|20002|/data/gpdata/mirror/gpseg6
 sdw1|21001|/data/gpdata/mirror/gpseg7 sdw5|20003|/data/gpdata/mirror/gpseg7
+'''
+    elif recovery_file == "/tmp/gprecoverseg_2.txt":
+        segment_mapping = '''
+sdw1|20000|/data/gpdata/primary/gpseg0 sdw5|20000|/data/gpdata/primary/gpseg0
+sdw1|20001|/data/gpdata/primary/gpseg1 sdw5|20001|/data/gpdata/primary/gpseg1
+sdw1|21000|/data/gpdata/mirror/gpseg6 sdw5|20002|/data/gpdata/mirror/gpseg6
+sdw1|21001|/data/gpdata/mirror/gpseg7 sdw5|20003|/data/gpdata/mirror/gpseg7
+sdw3|21000|/data/gpdata/mirror/gpseg2 sdw6|20000|/data/gpdata/mirror/gpseg2
+sdw3|21001|/data/gpdata/mirror/gpseg3 sdw6|20001|/data/gpdata/mirror/gpseg3
+sdw3|20000|/data/gpdata/primary/gpseg4 sdw6|20002|/data/gpdata/primary/gpseg4
+sdw3|20001|/data/gpdata/primary/gpseg5 sdw6|20003|/data/gpdata/primary/gpseg5
 '''
     else:
         raise Exception("bad file request: %s" % recovery_file)
