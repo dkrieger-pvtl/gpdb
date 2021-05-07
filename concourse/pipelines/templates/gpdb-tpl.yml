@@ -2,7 +2,8 @@
                       {'name': 'gprecoverseg_newhost',
                        'use_concourse_cluster': true,
                        'additional_ccp_vars': 'number_of_nodes: 7',
-                       'reserve_spare_host' : true},
+                       'reserve_spare_host' : true,
+                       'sudo_access_on_hosts' : true},
                     ] %}
 
 ## ======================================================================
@@ -2117,6 +2118,9 @@ jobs:
             file: gpdb_src/concourse/tasks/run_behave_on_ccp_cluster.yml
             image: ccp-image
             params:
+              {% if test.sudo_access_on_hosts %}
+              SUDO_ACCESS_ON_HOSTS: 1
+              {% endif %}
               BEHAVE_FLAGS: --tags=[[ test.name ]] --tags=concourse_cluster
               [[ test.env ]]
             on_success:
