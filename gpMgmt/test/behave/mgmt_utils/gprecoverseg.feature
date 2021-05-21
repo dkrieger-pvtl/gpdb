@@ -1,6 +1,7 @@
 @gprecoverseg
 Feature: gprecoverseg tests
 
+    @wip
     Scenario: incremental recovery works with tablespaces
         Given the database is running
           And a tablespace is created with data
@@ -18,6 +19,7 @@ Feature: gprecoverseg tests
           And the tablespace is valid
           And the other tablespace is valid
 
+    @wip
     Scenario: full recovery works with tablespaces
         Given the database is running
           And a tablespace is created with data
