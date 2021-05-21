@@ -42,6 +42,7 @@ from gppylib.operations.utils import ParallelOperation
 from gppylib.operations.package import SyncPackages
 from gppylib.heapchecksum import HeapChecksum
 from gppylib.mainUtils import ExceptionNoStackTraceNeeded
+from gppylib.programs import clsRecoverSegment_triples
 
 logger = gplog.get_default_logger()
 
@@ -419,10 +420,19 @@ class GpRecoverSegmentProgram:
     def getRecoveryActionsBasedOnOptions(self, gpEnv, gpArray):
         if self.__options.rebalanceSegments:
             return GpSegmentRebalanceOperation(gpEnv, gpArray)
-        elif self.__options.recoveryConfigFile is not None:
-            return self.getRecoveryActionsFromConfigFile(gpArray)
         else:
-            return self.getRecoveryActionsFromConfiguration(gpEnv, gpArray)
+            segs_with_persistent_mirroring_disabled = []
+            self._output_segments_with_persistent_mirroring_disabled(segs_with_persistent_mirroring_disabled)
+
+            instance = clsRecoverSegment_triples.MirrorBuilderFactory.instance(gpArray, self.__options.recoveryConfigFile, self.__options.newRecoverHosts,
+                                                     self.logger)
+            segs = []
+            for t in instance.getMirrorTriples():
+                segs.append(GpMirrorToBuild(t[0], t[1], t[2], self.__options.forceFullResynchronization))
+
+            return GpMirrorListToBuild(segs, self.__pool, self.__options.quiet,
+                                   self.__options.parallelDegree, forceoverwrite=True,
+                                   progressMode=self.getProgressMode())
 
     def syncPackages(self, new_hosts):
         # The design decision here is to squash any exceptions resulting from the
