@@ -42,7 +42,7 @@ gDatabaseDirectories = [
 ]
 
 #
-# Database files that may exist in the root directory and need deleting 
+# Database files that may exist in the root directory and need deleting
 #
 gDatabaseFiles = [
     "PG_VERSION",
@@ -723,7 +723,7 @@ class GpMirrorListToBuild:
     def __ensureSharedMemCleaned(self, gpEnv, directives):
         """
 
-        @param directives a list of the GpStopSegmentDirectoryDirective values indicating which segments to cleanup 
+        @param directives a list of the GpStopSegmentDirectoryDirective values indicating which segments to cleanup
 
         """
 
@@ -733,9 +733,17 @@ class GpMirrorListToBuild:
         self.__logger.info('Ensuring that shared memory is cleaned up for stopped segments')
         segments = [d.getSegment() for d in directives]
         segmentsByHost = GpArray.getSegmentsByHostName(segments)
-        operation_list = [RemoteOperation(CleanSharedMem(segments), host=hostName) for hostName, segments in
-                          segmentsByHost.items()]
-        ParallelOperation(operation_list).run()
+        try:
+            operation_list = [RemoteOperation(CleanSharedMem(segments), host=hostName) for hostName, segments in
+                              segmentsByHost.items()]
+            ParallelOperation(operation_list).run()
+        except ExecutionError as e:
+            if 'Could not resolve hostname' in str(e):
+                pass
+            else:
+                raise e
+        except Exception as e:
+            raise e
 
         for operation in operation_list:
             try:
@@ -799,7 +807,7 @@ class GpMirrorListToBuild:
         self.__logger.info("This may take up to %d seconds on large clusters." % wait_time)
 
         # wait for all needed segments to be marked down by the prober.  We'll wait
-        # a max time of double the interval 
+        # a max time of double the interval
         while wait_time > time_elapsed:
             seg_up_count = 0
             current_gparray = GpArray.initFromCatalog(dburl, True)
