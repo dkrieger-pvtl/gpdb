@@ -20,6 +20,7 @@ Feature: gprecoverseg tests involving migrating to a new host
       Then gprecoverseg should return a return code of 0
       And the cluster configuration is saved for "<test_case>"
       And the "before" and "<test_case>" cluster configuration matches with the expected for gprecoverseg newhost
+      And output should not contain "Could not resolve hostname"
       And the mirrors replicate and fail over and back correctly
       And segment hosts <down> are reconnected to the cluster and to the spare segment hosts "<unused>"
       And the original cluster state is recreated after cleaning up <down> hosts
