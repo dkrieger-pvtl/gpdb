@@ -7,8 +7,7 @@ import tempfile
 
 import gppylib
 from gparray import Segment, GpArray
-from gppylib.programs import clsRecoverSegment_triples
-from gppylib.programs.clsRecoverSegment_triples import FromUserConfigFile, RecoveryTripletsFactory, RecoveryTriplet
+from gppylib.programs.clsRecoverSegment_triples import RecoveryTripletsUserConfigFile, RecoveryTripletsFactory, RecoveryTriplet
 from test.unit.gp_unittest import GpTestCase
 
 
@@ -28,7 +27,7 @@ class RecoveryTripletsFactoryTestCase(GpTestCase):
                                      test.get("unreachable_existing_hosts"))
 
     #TODO: do we want new hosts here?  We do not officially support new hosts with "-i"
-    def test_FromUserConfigFile_getMirrorTriples_should_pass(self):
+    def test_RecoveryTripletsUserConfigFile_getMirrorTriples_should_pass(self):
         tests = [
             {
                 "name": "blank_config_file",
@@ -105,7 +104,7 @@ class RecoveryTripletsFactoryTestCase(GpTestCase):
         ]
         self.run_pass_tests(tests, self.run_single_ConfigFile_test)
 
-    def test_FromUserConfigFile_getMirrorTriples_should_fail(self):
+    def test_RecoveryTripletsUserConfigFile_getMirrorTriples_should_fail(self):
         tests = [
             {
                 "name": "invalid_failed_address",
@@ -188,7 +187,7 @@ class RecoveryTripletsFactoryTestCase(GpTestCase):
         ]
         self.run_fail_tests(tests, self.run_single_ConfigFile_test)
 
-    def test_FromGpArray_getMirrorTriples_should_pass(self):
+    def test_RecoveryTripletsInPlaceAndNewHosts_getMirrorTriples_should_pass(self):
         tests = [{
                 "name": "no_new_hosts",
                 "gparray": self.three_failedover_segs_gparray_str,
@@ -274,7 +273,7 @@ class RecoveryTripletsFactoryTestCase(GpTestCase):
 
         self.run_pass_tests(tests, self.run_single_GpArray_test)
 
-    def test_FromGpArray_getMirrorTriples_should_fail(self):
+    def test_RecoveryTripletsInPlaceAndNewHosts_getMirrorTriples_should_fail(self):
         tests = [
             {
                 "name": "not_enough_hosts",
@@ -526,14 +525,14 @@ class RecoveryTripletsFactoryTestCase(GpTestCase):
         return gparray_str.getvalue()
 
 
-class FromUserConfigFileParserTestCase(GpTestCase):
+class RecoveryTripletsUserConfigFileParserTestCase(GpTestCase):
 
     @staticmethod
     def run_single_parser_test(test):
         with tempfile.NamedTemporaryFile() as f:
             f.write(test["config"].encode("utf-8"))
             f.flush()
-            return FromUserConfigFile._parseConfigFile(f.name)
+            return RecoveryTripletsUserConfigFile._parseConfigFile(f.name)
 
     passing_tests = [
         {

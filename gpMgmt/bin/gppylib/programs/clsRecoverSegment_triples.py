@@ -104,12 +104,12 @@ class RecoveryTripletsFactory:
         :return:
         """
         if config_file:
-            return FromUserConfigFile(gpArray, config_file)
+            return RecoveryTripletsUserConfigFile(gpArray, config_file)
         else:
             if not new_hosts:
-                return FromGpArrayToExistingHosts(gpArray)
+                return RecoveryTripletsInplace(gpArray)
             else:
-                return FromGpArrayToNewHosts(gpArray, new_hosts)
+                return RecoveryTripletsNewHosts(gpArray, new_hosts)
 
 
 class RecoveryTriplets(abc.ABC):
@@ -173,7 +173,7 @@ class RecoveryTriplets(abc.ABC):
         return triplets
 
 
-class FromGpArrayToExistingHosts(RecoveryTriplets):
+class RecoveryTripletsInplace(RecoveryTriplets):
     def __init__(self, gpArray):
         super().__init__(gpArray)
 
@@ -189,12 +189,12 @@ class FromGpArrayToExistingHosts(RecoveryTriplets):
 
         return self._convert_requests_to_triplets(requests)
 
-# TODO: how do we make this clean?  This essentially maps failed hosts to newHosts
-# and then assigns the failed segments to them but the code isn't easy to follow
-class FromGpArrayToNewHosts(RecoveryTriplets):
+
+class RecoveryTripletsNewHosts(RecoveryTriplets):
     def __init__(self, gpArray, newHosts):
         super().__init__(gpArray)
         self.newHosts = [] if not newHosts else newHosts[:]
+        self.portAssigner = self._PortAssigner(gpArray)
 
     #TODO improvement: skip unreachable new hosts and choose from the rest; right now we fail
     # if the first new host is unreachable even if there is an unused one later in the list.
@@ -219,24 +219,70 @@ class FromGpArrayToNewHosts(RecoveryTriplets):
         _check_new_hosts()
 
         requests = []
-        portAssigner = _PortAssigner(self.gpArray)
         for failedHost, failoverHost in zip(sorted(failedSegments.keys()), self.newHosts):
             for failed in failedSegments[failedHost]:
-                failoverPort = portAssigner.findAndReservePort(failoverHost, failoverHost)
+                failoverPort = self.portAssigner.findAndReservePort(failoverHost, failoverHost)
                 req = RecoveryRequest(failed, failoverHost, failoverPort, failed.getSegmentDataDirectory(), True)
                 requests.append(req)
 
         return self._convert_requests_to_triplets(requests)
 
+    class _PortAssigner:
+        """
+        Used to assign new ports to segments on a host
 
-class FromUserConfigFile(RecoveryTriplets):
+        Note that this could be improved so that we re-use ports for segments that are being recovered but this
+          does not seem necessary.
+
+        """
+
+        MAX_PORT_EXCLUSIVE = 65536
+
+        def __init__(self, gpArray):
+            #
+            # determine port information for recovering to a new host --
+            #   we need to know the ports that are in use and the valid range of ports
+            #
+            segments = gpArray.getDbList()
+            ports = [seg.getSegmentPort() for seg in segments if seg.isSegmentQE()]
+            if len(ports) > 0:
+                self.__minPort = min(ports)
+            else:
+                raise Exception("No segment ports found in array.")
+            self.__usedPortsByHostName = {}
+
+            byHost = GpArray.getSegmentsByHostName(segments)
+            for hostName, segments in byHost.items():
+                usedPorts = self.__usedPortsByHostName[hostName] = {}
+                for seg in segments:
+                    usedPorts[seg.getSegmentPort()] = True
+
+        def findAndReservePort(self, hostName, address):
+            """
+            Find a port not used by any postmaster process.
+            When found, add an entry:  usedPorts[port] = True   and return the port found
+            Otherwise raise an exception labeled with the given address
+            """
+            if hostName not in self.__usedPortsByHostName:
+                self.__usedPortsByHostName[hostName] = {}
+            usedPorts = self.__usedPortsByHostName[hostName]
+
+            minPort = self.__minPort
+            for port in range(minPort, RecoveryTripletsNewHosts._PortAssigner.MAX_PORT_EXCLUSIVE):
+                if port not in usedPorts:
+                    usedPorts[port] = True
+                    return port
+            raise Exception("Unable to assign port on %s" % address)
+
+
+class RecoveryTripletsUserConfigFile(RecoveryTriplets):
     def __init__(self, gpArray, config_file):
         super().__init__(gpArray)
         self.config_file = config_file
         self.rows = self._parseConfigFile(self.config_file)
 
     def getTriplets(self):
-        def _find_failed_in_row():
+        def _find_failed_from_row():
             failed = None
             for segment in self.gpArray.getDbList():
                 if (segment.getSegmentAddress() == row['failedAddress']
@@ -254,7 +300,7 @@ class FromUserConfigFile(RecoveryTriplets):
 
         requests = []
         for row in self.rows:
-            req = RecoveryRequest(_find_failed_in_row(), row.get('newAddress'), row.get('newPort'), row.get('newDataDirectory'))
+            req = RecoveryRequest(_find_failed_from_row(), row.get('newAddress'), row.get('newPort'), row.get('newDataDirectory'))
             requests.append(req)
 
         return self._convert_requests_to_triplets(requests)
@@ -308,7 +354,7 @@ class FromUserConfigFile(RecoveryTriplets):
 
                 rows.append(row)
 
-        FromUserConfigFile._validate(rows)
+        RecoveryTripletsUserConfigFile._validate(rows)
 
         return rows
 
@@ -350,50 +396,3 @@ class FromUserConfigFile(RecoveryTriplets):
 
                 new[address2+datadir2] = lineno
 
-
-class _PortAssigner:
-    """
-    Used to assign new ports to segments on a host
-
-    Note that this could be improved so that we re-use ports for segments that are being recovered but this
-      does not seem necessary.
-
-    """
-
-    MAX_PORT_EXCLUSIVE = 65536
-
-    def __init__(self, gpArray):
-        #
-        # determine port information for recovering to a new host --
-        #   we need to know the ports that are in use and the valid range of ports
-        #
-        segments = gpArray.getDbList()
-        ports = [seg.getSegmentPort() for seg in segments if seg.isSegmentQE()]
-        if len(ports) > 0:
-            self.__minPort = min(ports)
-        else:
-            raise Exception("No segment ports found in array.")
-        self.__usedPortsByHostName = {}
-
-        byHost = GpArray.getSegmentsByHostName(segments)
-        for hostName, segments in byHost.items():
-            usedPorts = self.__usedPortsByHostName[hostName] = {}
-            for seg in segments:
-                usedPorts[seg.getSegmentPort()] = True
-
-    def findAndReservePort(self, hostName, address):
-        """
-        Find a port not used by any postmaster process.
-        When found, add an entry:  usedPorts[port] = True   and return the port found
-        Otherwise raise an exception labeled with the given address
-        """
-        if hostName not in self.__usedPortsByHostName:
-            self.__usedPortsByHostName[hostName] = {}
-        usedPorts = self.__usedPortsByHostName[hostName]
-
-        minPort = self.__minPort
-        for port in range(minPort, _PortAssigner.MAX_PORT_EXCLUSIVE):
-            if port not in usedPorts:
-                usedPorts[port] = True
-                return port
-        raise Exception("Unable to assign port on %s" % address)
